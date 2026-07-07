@@ -196,6 +196,7 @@ body {
 .editor-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .title-input {
   flex: 1;
+  min-width: 0; /* allow the input to shrink so the action buttons stay on-screen */
   font-family: var(--c360-font-ui);
   font-size: 1.75rem;
   line-height: 2.25rem;
@@ -340,7 +341,7 @@ body {
   border-radius: var(--c360-radius-md);
   padding: 20px;
 }
-.panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
 .panel-head h3 { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
 .hint { font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-disabled); }
 kbd {
@@ -525,4 +526,7 @@ kbd {
   .workspace { padding: 16px; }
   .panels { grid-template-columns: 1fr; }
   .insight-wrap { grid-template-columns: 1fr; }
+  /* Page title steps down to the title size so it fits a phone column. */
+  .title-input { font-size: 1.25rem; line-height: 1.75rem; }
+  .rb-text .rb-winner, .result-banner .rb-text .rb-winner { font-size: 1.25rem; line-height: 1.75rem; }
 }

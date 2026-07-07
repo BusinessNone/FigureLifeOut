@@ -310,6 +310,20 @@ test("share link round-trips a decision and keeps notes private", async (t) => {
   assert.ok(!recipient.url().includes("#d="), "hash should be cleared after import");
 });
 
+test("editor actions stay on-screen on a narrow (mobile) viewport", async (t) => {
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 720 } });
+  const page = await ctx.newPage();
+  t.after(() => ctx.close());
+  await page.goto(base + "/");
+  await page.waitForSelector("#decision-editor:not([hidden])");
+  for (const id of ["#share-decision", "#duplicate-decision", "#delete-decision"]) {
+    const right = await page.$eval(id, (el) => el.getBoundingClientRect().right);
+    assert.ok(right <= 375, `${id} should be within the 375px viewport (right=${Math.round(right)})`);
+  }
+  const hScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  assert.ok(!hScroll, "page must not scroll horizontally on mobile");
+});
+
 test("PWA: manifest, service worker, and offline reload", async (t) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
