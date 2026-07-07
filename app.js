@@ -590,7 +590,10 @@
   }
 
   function seedExampleIfEmpty() {
-    if (state.decisions.length > 0) return;
+    // Seed the walkthrough example only once, ever. If the user has decisions
+    // (or already saw it and cleared them), mark it done so it never resurrects.
+    if (state.seeded) return;
+    if (state.decisions.length > 0) { state.seeded = true; save(); return; }
     const d = makeDecision();
     d.title = "Should I take the new job?";
     const crit = [
@@ -608,6 +611,7 @@
     };
     state.decisions.push(d);
     state.activeId = d.id;
+    state.seeded = true;
     save();
   }
 

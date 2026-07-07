@@ -66,9 +66,24 @@ option on the same 0–10 scale, so comparisons stay honest.
 | `app.js` | State, scoring math, insight engine, rendering — plain vanilla JS |
 | `manifest.webmanifest` · `sw.js` | PWA manifest and offline service worker |
 | `icon*.png` · `icon.svg` | App icons |
-| `.github/workflows/deploy-pages.yml` | Auto-deploy to GitHub Pages on push to `main` |
+| `.github/workflows/` | CI (tests) and GitHub Pages deploy |
+| `tests/e2e.mjs` · `scripts/serve.mjs` | End-to-end tests and a tiny static server |
 
-No dependencies. Open the file, or serve the folder with any static host.
+The **app itself has zero runtime dependencies** — it ships as static files. Playwright is a
+dev-only dependency used for testing. Open `index.html`, or serve the folder with any static host.
+
+## Testing
+
+End-to-end tests drive a real headless browser and cover scoring, the insight engine,
+sensitivity analysis, the gut check, persistence, and offline PWA behavior.
+
+```bash
+npm install          # dev dependency: Playwright
+npx playwright install chromium
+npm test             # runs tests/e2e.mjs against a local static server
+```
+
+CI runs the same suite on every push and pull request (`.github/workflows/ci.yml`).
 
 ## Deploying
 

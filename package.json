@@ -1,0 +1,14 @@
+{
+  "name": "figurelifeout",
+  "version": "1.0.0",
+  "description": "A weighted decision engine that runs entirely on your device.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node scripts/serve.mjs",
+    "test": "node --test tests/*.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
