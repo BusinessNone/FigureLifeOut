@@ -17,6 +17,7 @@
       if (!raw) return { decisions: [], activeId: null };
       const data = JSON.parse(raw);
       if (!Array.isArray(data.decisions)) return { decisions: [], activeId: null };
+      data.decisions.forEach(normalizeDecision);
       return data;
     } catch {
       return { decisions: [], activeId: null };
@@ -32,6 +33,7 @@
   };
 
   let state = load();
+  let sortByScore = false; // matrix view preference (session-only)
 
   /* ---------- DOM refs ---------- */
   const $ = (sel) => document.querySelector(sel);
@@ -43,7 +45,13 @@
     editor: $("#decision-editor"),
     title: $("#decision-title"),
     deleteBtn: $("#delete-decision"),
+    duplicateBtn: $("#duplicate-decision"),
     banner: $("#result-banner"),
+    gutCheck: $("#gut-check"),
+    gutSelect: $("#gut-select"),
+    notes: $("#notes-input"),
+    sortToggle: $("#sort-toggle"),
+    csvBtn: $("#csv-btn"),
     criteria: $("#criteria-list"),
     critForm: $("#criterion-form"),
     critInput: $("#criterion-input"),
@@ -68,8 +76,27 @@
       criteria: [], // { id, name, weight }
       options: [],  // { id, name }
       scores: {},   // scores[optionId][criterionId] = 0..10
+      notes: "",
+      gut: null,    // optionId the user's intuition favors
       createdAt: Date.now(),
     };
+  }
+
+  /* Backfill fields on decisions loaded from older saves. */
+  function normalizeDecision(d) {
+    if (typeof d.notes !== "string") d.notes = "";
+    if (!("gut" in d)) d.gut = null;
+    if (!d.scores || typeof d.scores !== "object") d.scores = {};
+    if (!Array.isArray(d.criteria)) d.criteria = [];
+    if (!Array.isArray(d.options)) d.options = [];
+    return d;
+  }
+
+  /* A subtle red→amber→green tint for a 0–10 score; theme-agnostic. */
+  function heatColor(score) {
+    if (!Number.isFinite(score)) return "";
+    const hue = (Math.max(0, Math.min(10, score)) / 10) * 130; // 0=red, 130=green
+    return `hsl(${hue} 65% 45% / 0.16)`;
   }
 
   /* Weighted result: for each option, sum(score * weight) / sum(weight) → 0..10 scale */
@@ -101,10 +128,27 @@
     el.empty.hidden = true;
     el.editor.hidden = false;
     el.title.value = d.title;
+    el.notes.value = d.notes || "";
     renderCriteria(d);
     renderOptions(d);
+    renderGutCheck(d);
     renderMatrix(d);
     renderBanner(d);
+  }
+
+  function renderGutCheck(d) {
+    if (d.options.length === 0) {
+      el.gutCheck.hidden = true;
+      return;
+    }
+    el.gutCheck.hidden = false;
+    // Keep the user's pick only if it still points to a live option.
+    if (d.gut && !d.options.some((o) => o.id === d.gut)) d.gut = null;
+    let html = `<option value="">No pick yet</option>`;
+    for (const o of d.options) {
+      html += `<option value="${o.id}"${o.id === d.gut ? " selected" : ""}>${escapeHtml(o.name)}</option>`;
+    }
+    el.gutSelect.innerHTML = html;
   }
 
   function renderSidebar() {
@@ -199,15 +243,20 @@
     }
     html += `<th class="total-head">Score</th></tr></thead><tbody>`;
 
-    // Rows (keep option order stable, not sorted, so the grid doesn't jump while typing)
-    for (const o of d.options) {
+    // Sorting by score is opt-in; default keeps entry order so the grid doesn't jump while typing.
+    const ordered = sortByScore
+      ? [...d.options].sort((a, b) => (normById.get(b.id) || 0) - (normById.get(a.id) || 0))
+      : d.options;
+
+    for (const o of ordered) {
       const isLeader = o.id === leaderId;
       html += `<tr class="${isLeader ? "leader" : ""}"><th>${escapeHtml(o.name)}</th>`;
       for (const c of d.criteria) {
         const v = d.scores[o.id]?.[c.id];
         const val = Number.isFinite(v) ? v : "";
+        const bg = Number.isFinite(v) ? ` style="background:${heatColor(v)}"` : "";
         html += `<td class="score-cell"><input type="number" min="0" max="10" step="1"
-          data-opt="${o.id}" data-crit="${c.id}" value="${val}" placeholder="0" /></td>`;
+          data-opt="${o.id}" data-crit="${c.id}" value="${val}" placeholder="0"${bg} /></td>`;
       }
       const norm = normById.get(o.id) || 0;
       html += `<td class="total-cell">${norm.toFixed(1)}</td></tr>`;
@@ -224,10 +273,12 @@
         if (!Number.isFinite(n)) {
           if (!d.scores[optId]) d.scores[optId] = {};
           delete d.scores[optId][critId];
+          input.style.background = "";
         } else {
           n = Math.max(0, Math.min(10, n));
           if (!d.scores[optId]) d.scores[optId] = {};
           d.scores[optId][critId] = n;
+          input.style.background = heatColor(n);
         }
         save();
         updateTotals(d);
@@ -272,12 +323,26 @@
     } else {
       sub = `Ahead of “${escapeHtml(runnerUp.opt.name)}” by ${margin.toFixed(1)} points on a 10-point scale.`;
     }
+    // Compare the numbers against the user's recorded gut pick, if any.
+    let gutLine = "";
+    if (d.gut) {
+      const gutName = d.options.find((o) => o.id === d.gut)?.name;
+      if (gutName) {
+        if (d.gut === winner.opt.id) {
+          gutLine = `<div class="rb-gut agree">🫀 Your gut agrees with the numbers.</div>`;
+        } else {
+          gutLine = `<div class="rb-gut disagree">🫀 Your gut says “${escapeHtml(gutName)}” — worth asking what the numbers are missing.</div>`;
+        }
+      }
+    }
+
     el.banner.innerHTML = `
       <span class="rb-emoji">${margin !== null && margin < 0.3 ? "⚖️" : "✨"}</span>
       <div class="rb-text">
         <h3>Leaning toward</h3>
         <div class="rb-winner">${escapeHtml(winner.opt.name)}</div>
         <div class="rb-sub">${sub}</div>
+        ${gutLine}
       </div>`;
     el.banner.hidden = false;
   }
@@ -314,6 +379,57 @@
     save();
   }
 
+  function duplicateDecision() {
+    const d = active();
+    if (!d) return;
+    const copy = JSON.parse(JSON.stringify(d));
+    copy.id = uid();
+    copy.title = (d.title || "Untitled decision") + " (copy)";
+    copy.gut = null;
+    copy.createdAt = Date.now();
+    state.decisions.push(copy);
+    state.activeId = copy.id;
+    save();
+    render();
+    toast("Duplicated — tweak away without losing the original.");
+  }
+
+  function exportCsv() {
+    const d = active();
+    if (!d || d.criteria.length === 0 || d.options.length === 0) {
+      toast("Add options and criteria first.");
+      return;
+    }
+    const { rows } = computeResults(d);
+    const normById = new Map(rows.map((r) => [r.opt.id, r.normalized]));
+    const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    const header = ["Option", ...d.criteria.map((c) => `${c.name} (x${c.weight})`), "Weighted score"];
+    const lines = [header.map(esc).join(",")];
+    for (const o of d.options) {
+      const cells = d.criteria.map((c) => {
+        const v = d.scores[o.id]?.[c.id];
+        return Number.isFinite(v) ? v : 0;
+      });
+      lines.push([esc(o.name), ...cells, (normById.get(o.id) || 0).toFixed(2)].join(","));
+    }
+    downloadBlob(lines.join("\n"), "text/csv", `${slug(d.title || "decision")}.csv`);
+    toast("Exported CSV.");
+  }
+
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "decision";
+  }
+
+  function downloadBlob(content, type, filename) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   /* ---------- import / export ---------- */
   function exportData() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -335,6 +451,7 @@
         // Merge imported decisions with fresh ids to avoid collisions
         for (const d of data.decisions) {
           d.id = uid();
+          normalizeDecision(d);
           state.decisions.push(d);
         }
         state.activeId = state.decisions[state.decisions.length - 1]?.id || null;
@@ -381,6 +498,32 @@
     save();
     renderSidebar();
   });
+
+  el.duplicateBtn.addEventListener("click", duplicateDecision);
+
+  el.notes.addEventListener("input", () => {
+    const d = active();
+    if (!d) return;
+    d.notes = el.notes.value;
+    save();
+  });
+
+  el.gutSelect.addEventListener("change", () => {
+    const d = active();
+    if (!d) return;
+    d.gut = el.gutSelect.value || null;
+    save();
+    renderBanner(d);
+  });
+
+  el.sortToggle.addEventListener("click", () => {
+    sortByScore = !sortByScore;
+    el.sortToggle.classList.toggle("active", sortByScore);
+    const d = active();
+    if (d) renderMatrix(d);
+  });
+
+  el.csvBtn.addEventListener("click", exportCsv);
 
   el.deleteBtn.addEventListener("click", () => {
     const d = active();

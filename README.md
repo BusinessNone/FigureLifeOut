@@ -32,9 +32,15 @@ option on the same 0–10 scale, so comparisons stay honest.
 ## Features
 
 - ⚖️ Weighted criteria with live-updating results
+- 🔥 Heatmap scoring grid — strengths and weaknesses jump out at a glance
+- 🫀 **Gut check** — record which way your intuition leans *before* the math, then see
+  whether the numbers agree. When they don't, that gap is the most useful thing on screen.
+- 📝 Notes & reflections — capture the things a number can't
+- ↕️ Sort options by score, or keep entry order while you type
+- ⧉ Duplicate a decision to explore "what if" scenarios without touching the original
 - 🗂 Multiple saved decisions, kept in your browser's local storage
 - 🌗 Light / dark theme
-- 📤 Export / import your decisions as JSON (portable backups)
+- 📤 Export / import as JSON (portable backups) or export the matrix as CSV
 - 📱 Responsive — works on phone and desktop
 - 🔒 100% local — no server, no tracking, no network calls
 
