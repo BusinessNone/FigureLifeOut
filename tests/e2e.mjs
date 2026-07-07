@@ -99,6 +99,8 @@ test("scoring computes a weighted result and reweighting flips the winner", asyn
   await ranges[1].evaluate((r) => { r.value = 10; r.dispatchEvent(new Event("input", { bubbles: true })); });
   await page.waitForFunction(() => document.querySelector(".rb-winner")?.textContent === "Denver");
   assert.equal(await page.textContent(".rb-winner"), "Denver");
+  // A screen-reader announcement fired for the leader change.
+  await page.waitForFunction(() => /Denver is now leading/.test(document.querySelector("#live")?.textContent || ""));
 });
 
 test("insight engine flags a dominated option and a clear leader", async (t) => {

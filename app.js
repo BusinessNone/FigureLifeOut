@@ -752,14 +752,23 @@
     }
   }
 
+  // Tracks the last winner announced per decision, so screen readers hear
+  // "X is now leading" only when the leader actually changes, not every keystroke.
+  const lastAnnouncedWinner = {};
+
   function renderBanner(d) {
     const { rows, totalWeight } = computeResults(d);
     const scored = rows.some((r) => r.total > 0);
     if (!scored || d.options.length === 0 || totalWeight === 0) {
       el.banner.hidden = true;
+      delete lastAnnouncedWinner[d.id];
       return;
     }
     const winner = rows[0];
+    if (lastAnnouncedWinner[d.id] && lastAnnouncedWinner[d.id] !== winner.opt.id) {
+      announce(`${winner.opt.name} is now leading.`);
+    }
+    lastAnnouncedWinner[d.id] = winner.opt.id;
     const runnerUp = rows[1];
     const margin = runnerUp ? winner.normalized - runnerUp.normalized : null;
     let sub;
