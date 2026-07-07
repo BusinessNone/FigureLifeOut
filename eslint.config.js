@@ -36,6 +36,7 @@ export default [
         // callbacks, which execute in the browser, not Node.
         document: "readonly", window: "readonly", navigator: "readonly",
         getComputedStyle: "readonly", fetch: "readonly", Event: "readonly",
+        localStorage: "readonly",
       },
     },
     rules: {

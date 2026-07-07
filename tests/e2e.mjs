@@ -8,6 +8,9 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { start } from "../scripts/serve.mjs";
 
 let server, browser, base;
@@ -302,6 +305,67 @@ test("template modal moves focus in and restores it on close", async (t) => {
   await page.keyboard.press("Escape");
   await page.waitForSelector("#template-modal", { state: "hidden" });
   assert.equal(await page.evaluate(() => document.activeElement.id), "new-decision", "focus should return to the trigger");
+});
+
+async function writeFixture(t, name, data) {
+  const dir = await mkdtemp(join(tmpdir(), "flo-import-"));
+  const path = join(dir, name);
+  await writeFile(path, typeof data === "string" ? data : JSON.stringify(data));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  return path;
+}
+
+test("importing a corrupt file shows an error and never mutates saved state", async (t) => {
+  const page = await freshPage(t);
+  const before = await page.evaluate(() => localStorage.getItem("figurelifeout.v1"));
+
+  // Not valid JSON at all.
+  const badJson = await writeFixture(t, "bad.json", "{ not json");
+  await page.setInputFiles("#import-file", badJson);
+  await page.waitForSelector("#toast:not([hidden])");
+  assert.match(await page.textContent("#toast"), /valid JSON/);
+  assert.equal(await page.evaluate(() => localStorage.getItem("figurelifeout.v1")), before, "storage must be untouched");
+
+  // Valid JSON but the wrong shape (no decisions array).
+  const wrongShape = await writeFixture(t, "wrong.json", { hello: "world" });
+  await page.setInputFiles("#import-file", wrongShape);
+  await page.waitForFunction(() => /FigureLifeOut backup/.test(document.querySelector("#toast")?.textContent || ""));
+  assert.equal(await page.evaluate(() => localStorage.getItem("figurelifeout.v1")), before, "storage must still be untouched");
+
+  // A subsequent, unrelated save (e.g. editing the title) must not carry
+  // over any partial garbage from the failed imports.
+  await page.fill("#decision-title", "Untouched by bad imports");
+  await page.waitForFunction(() => /Untouched by bad imports/.test(localStorage.getItem("figurelifeout.v1") || ""));
+  const decisionCount = await page.$$eval("#decision-list li", (els) => els.length);
+  assert.equal(decisionCount, 1, "no phantom decisions from the failed imports");
+});
+
+test("importing sanitizes malformed decision entries instead of crashing", async (t) => {
+  const page = await freshPage(t);
+  const fixture = {
+    decisions: [
+      null, // garbage entry: must be skipped, not crash the import
+      "also garbage",
+      {
+        // missing title, garbage weight/score, orphan score for an unknown criterion
+        criteria: [{ id: "c1", name: "Speed", weight: "banana" }],
+        options: [{ id: "o1", name: "Rocket" }],
+        scores: { o1: { c1: "9", nope: 5 }, ghostOption: { c1: 3 } },
+      },
+    ],
+  };
+  const path = await writeFixture(t, "messy.json", fixture);
+  await page.setInputFiles("#import-file", path);
+  await page.waitForFunction(() => /Imported 1 decision/.test(document.querySelector("#toast")?.textContent || ""));
+  assert.match(await page.textContent("#toast"), /2 skipped/);
+
+  // The one salvageable decision imported cleanly: title defaulted, weight
+  // clamped into range, the bogus score keys dropped, real score kept.
+  assert.equal(await page.inputValue("#decision-title"), "");
+  const weight = await page.$eval("#criteria-list .weight-val", (el) => el.textContent);
+  assert.ok(Number(weight) >= 1 && Number(weight) <= 10, `weight should be clamped, got ${weight}`);
+  const scoreVal = await page.$eval(".score-cell input", (el) => el.value);
+  assert.equal(scoreVal, "9");
 });
 
 test("share link round-trips a decision and keeps notes private", async (t) => {

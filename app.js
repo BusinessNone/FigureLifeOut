@@ -38,13 +38,22 @@
   let _seq = 0;
   const uid = () => `${Date.now().toString(36)}${(_seq++).toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
+  // Shared sanitizers — used both for data loaded from storage/import and
+  // for imported share links, so malformed values can never propagate NaN
+  // into the scoring math or the literal string "undefined" into an input.
+  const clampWeight = (w) => Math.max(1, Math.min(10, Math.round(Number(w)) || 5));
+  const clampScore = (v) => Math.max(0, Math.min(10, Math.round(Number(v))));
+  const cleanStr = (s, max) => (typeof s === "string" ? s : String(s ?? "")).slice(0, max);
+
   const load = () => {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return { decisions: [], activeId: null };
       const data = JSON.parse(raw);
       if (!Array.isArray(data.decisions)) return { decisions: [], activeId: null };
-      data.decisions.forEach(normalizeDecision);
+      // A single corrupt entry (e.g. hand-edited localStorage) should not
+      // wipe every other saved decision — filter, then normalize what's left.
+      data.decisions = data.decisions.filter((d) => d && typeof d === "object").map(normalizeDecision);
       return data;
     } catch {
       return { decisions: [], activeId: null };
@@ -155,12 +164,35 @@
 
   /* Backfill fields on decisions loaded from older saves. */
   function normalizeDecision(d) {
+    if (typeof d.title !== "string") d.title = "";
     if (typeof d.notes !== "string") d.notes = "";
     if (!("gut" in d)) d.gut = null;
-    if (!d.scores || typeof d.scores !== "object") d.scores = {};
     if (!Array.isArray(d.criteria)) d.criteria = [];
     if (!Array.isArray(d.options)) d.options = [];
-    if (!d.updatedAt) d.updatedAt = d.createdAt || Date.now();
+    // Sanitize each criterion/option to a known shape; assign a fresh id to
+    // any entry missing one (e.g. hand-edited or older-format JSON) so
+    // scores (keyed by id) never silently orphan.
+    d.criteria = d.criteria
+      .filter((c) => c && typeof c === "object")
+      .map((c) => ({ id: typeof c.id === "string" && c.id ? c.id : uid(), name: cleanStr(c.name, 40), weight: clampWeight(c.weight) }));
+    d.options = d.options
+      .filter((o) => o && typeof o === "object")
+      .map((o) => ({ id: typeof o.id === "string" && o.id ? o.id : uid(), name: cleanStr(o.name, 40) }));
+    const critIds = new Set(d.criteria.map((c) => c.id));
+    const optIds = new Set(d.options.map((o) => o.id));
+    const rawScores = d.scores && typeof d.scores === "object" ? d.scores : {};
+    const scores = {};
+    for (const optId of Object.keys(rawScores)) {
+      if (!optIds.has(optId) || !rawScores[optId] || typeof rawScores[optId] !== "object") continue;
+      for (const critId of Object.keys(rawScores[optId])) {
+        if (!critIds.has(critId)) continue;
+        const v = rawScores[optId][critId];
+        if (Number.isFinite(Number(v))) (scores[optId] || (scores[optId] = {}))[critId] = clampScore(v);
+      }
+    }
+    d.scores = scores;
+    if (!Number.isFinite(d.createdAt)) d.createdAt = Date.now();
+    if (!Number.isFinite(d.updatedAt)) d.updatedAt = d.createdAt;
     return d;
   }
 
@@ -927,8 +959,6 @@
     return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
   }
 
-  const clampWeight = (w) => Math.max(1, Math.min(10, Math.round(Number(w)) || 5));
-
   // Compact payload; deliberately omits notes and gut pick to keep them private.
   function encodeDecision(d) {
     const payload = {
@@ -958,7 +988,7 @@
       row.forEach((val, ci) => {
         const crit = d.criteria[ci];
         if (crit && Number.isFinite(val)) {
-          (d.scores[opt.id] || (d.scores[opt.id] = {}))[crit.id] = Math.max(0, Math.min(10, val));
+          (d.scores[opt.id] || (d.scores[opt.id] = {}))[crit.id] = clampScore(val);
         }
       });
     });
@@ -1058,23 +1088,45 @@
   function importData(file) {
     const reader = new FileReader();
     reader.onload = () => {
+      // Build and validate the imported list in a local array first — state
+      // is only touched once everything has succeeded, so a malformed file
+      // can never leave partially-mutated data sitting in memory to be
+      // silently persisted by some later, unrelated save().
+      let parsed;
       try {
-        const data = JSON.parse(reader.result);
-        if (!Array.isArray(data.decisions)) throw new Error("bad shape");
-        // Merge imported decisions with fresh ids to avoid collisions
-        for (const d of data.decisions) {
-          d.id = uid();
-          normalizeDecision(d);
-          state.decisions.push(d);
-        }
-        state.activeId = state.decisions[state.decisions.length - 1]?.id || null;
-        save();
-        render();
-        toast(`Imported ${data.decisions.length} decision${data.decisions.length === 1 ? "" : "s"}.`);
+        parsed = JSON.parse(reader.result);
       } catch {
-        toast("That file didn't look like a FigureLifeOut backup.");
+        toast("That file isn't valid JSON.");
+        return;
       }
+      if (!parsed || !Array.isArray(parsed.decisions)) {
+        toast("That file didn't look like a FigureLifeOut backup.");
+        return;
+      }
+      const imported = [];
+      let skipped = 0;
+      for (const raw of parsed.decisions) {
+        if (!raw || typeof raw !== "object") { skipped++; continue; }
+        try {
+          const d = normalizeDecision({ ...raw, id: uid() });
+          imported.push(d);
+        } catch {
+          skipped++;
+        }
+      }
+      if (imported.length === 0) {
+        toast("That file didn't look like a FigureLifeOut backup.");
+        return;
+      }
+      state.decisions.push(...imported);
+      state.activeId = imported[imported.length - 1].id;
+      save();
+      render();
+      const n = imported.length;
+      const suffix = skipped > 0 ? ` (${skipped} skipped)` : "";
+      toast(`Imported ${n} decision${n === 1 ? "" : "s"}${suffix}.`);
     };
+    reader.onerror = () => toast("Couldn't read that file.");
     reader.readAsText(file);
   }
 
