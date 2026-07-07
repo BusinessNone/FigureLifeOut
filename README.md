@@ -37,6 +37,10 @@ option on the same 0–10 scale, so comparisons stay honest.
   result is, the single criterion the whole decision **hinges** on, options that are
   **dominated** (beaten on every criterion), whether your criteria actually separate the
   options, and gaps in your scoring. No LLM, no network — just heuristics running locally.
+- 🎚️ **Sensitivity analysis** — tells you how *robust* your result is: the smallest single
+  weight change that would flip the winner, or a green light that nothing can.
+- 🚀 **Starter templates** — begin from a curated set of criteria for common decisions
+  (job offer, where to live, big purchase, life crossroads) instead of a blank page.
 - 🔥 Heatmap scoring grid — strengths and weaknesses jump out at a glance
 - 🫀 **Gut check** — record which way your intuition leans *before* the math, then see
   whether the numbers agree. When they don't, that gap is the most useful thing on screen.

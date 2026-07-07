@@ -73,6 +73,7 @@
               <span class="hint">weighted, 0–10</span>
             </div>
             <div id="results-chart" class="results-chart"></div>
+            <div id="robustness" hidden></div>
           </div>
           <div class="panel insights-panel">
             <div class="panel-head">
@@ -141,6 +142,18 @@
   <footer class="app-footer">
     <span>Everything stays on your device — nothing is uploaded.</span>
   </footer>
+
+  <!-- Template picker modal -->
+  <div id="template-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">Start a decision</h2>
+        <button id="modal-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <p class="modal-sub">Pick a starting point — or start blank. You can change everything later.</p>
+      <div id="template-grid" class="template-grid"></div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 

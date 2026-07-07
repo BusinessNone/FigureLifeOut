@@ -35,6 +35,31 @@
   let state = load();
   let sortByScore = false; // matrix view preference (session-only)
 
+  /* Starter templates — curated criteria with sensible default weights. */
+  const TEMPLATES = [
+    { id: "blank", icon: "📝", name: "Blank", desc: "Start from scratch", title: "", criteria: [] },
+    {
+      id: "job", icon: "💼", name: "Job offer", desc: "Weigh a role or offer",
+      title: "Which job should I take?",
+      criteria: [["Compensation", 8], ["Work-life balance", 8], ["Growth & learning", 7], ["Team & culture", 7], ["Commute / location", 5]],
+    },
+    {
+      id: "home", icon: "🏡", name: "Where to live", desc: "Compare places to live",
+      title: "Where should I live?",
+      criteria: [["Cost of living", 8], ["Career opportunities", 7], ["Climate & surroundings", 6], ["Close to people I love", 7], ["Lifestyle & things to do", 6]],
+    },
+    {
+      id: "buy", icon: "🛒", name: "Big purchase", desc: "A car, gadget, anything pricey",
+      title: "Which one should I buy?",
+      criteria: [["Price / value", 8], ["Quality & reliability", 8], ["Features I actually need", 7], ["Longevity / resale", 5]],
+    },
+    {
+      id: "life", icon: "🧭", name: "Life crossroads", desc: "A major life direction",
+      title: "What should I do?",
+      criteria: [["Happiness & fulfillment", 9], ["Financial impact", 7], ["Impact on relationships", 7], ["Growth & challenge", 6], ["Alignment with my values", 8]],
+    },
+  ];
+
   /* ---------- DOM refs ---------- */
   const $ = (sel) => document.querySelector(sel);
   const el = {
@@ -52,6 +77,10 @@
     insightWrap: $("#insight-wrap"),
     chart: $("#results-chart"),
     insights: $("#insights-list"),
+    robustness: $("#robustness"),
+    modal: $("#template-modal"),
+    modalClose: $("#modal-close"),
+    templateGrid: $("#template-grid"),
     notes: $("#notes-input"),
     sortToggle: $("#sort-toggle"),
     csvBtn: $("#csv-btn"),
@@ -136,6 +165,46 @@
       if (acc > bestScore) { bestScore = acc; best = o.id; }
     }
     return best;
+  }
+
+  /* Winner id if one criterion's weight were changed to newWeight. */
+  function winnerWith(d, critId, newWeight) {
+    let best = null, bestScore = -1;
+    for (const o of d.options) {
+      let acc = 0;
+      for (const c of d.criteria) {
+        const w = c.id === critId ? newWeight : c.weight;
+        acc += scoreOf(d, o.id, c.id) * w;
+      }
+      if (acc > bestScore) { bestScore = acc; best = o.id; }
+    }
+    return best;
+  }
+
+  /* Sensitivity: the smallest single weight change that flips the winner, if any. */
+  function sensitivity(d) {
+    const { rows, totalWeight } = computeResults(d);
+    if (rows.length < 2 || totalWeight === 0 || rows[0].total <= 0) return null;
+    const winner = rows[0].opt.id;
+    let best = null; // { crit, from, to, newWinner, delta }
+    for (const c of d.criteria) {
+      for (let w = 1; w <= 10; w++) {
+        if (w === c.weight) continue;
+        if (winnerWith(d, c.id, w) !== winner) {
+          const delta = Math.abs(w - c.weight);
+          if (!best || delta < best.delta) best = { crit: c, from: c.weight, to: w, delta };
+        }
+      }
+    }
+    if (!best) return { robust: true };
+    const newWinner = winnerWith(d, best.crit.id, best.to);
+    return {
+      robust: false,
+      crit: best.crit.name,
+      from: best.from,
+      to: best.to,
+      newWinnerName: d.options.find((o) => o.id === newWinner)?.name || "another option",
+    };
   }
 
   /* ---------- local insight engine (no network, pure heuristics) ---------- */
@@ -422,6 +491,21 @@
       </div>`;
     }).join("");
 
+    // Robustness / sensitivity readout
+    const sens = sensitivity(d);
+    if (!sens) {
+      el.robustness.hidden = true;
+    } else if (sens.robust) {
+      el.robustness.hidden = false;
+      el.robustness.className = "robustness robust";
+      el.robustness.innerHTML = `<span class="rob-dot"></span><span class="rob-text"><strong>Robust result</strong> — no single weight change flips the winner.</span>`;
+    } else {
+      el.robustness.hidden = false;
+      el.robustness.className = "robustness fragile";
+      const dir = sens.to > sens.from ? "up" : "down";
+      el.robustness.innerHTML = `<span class="rob-dot"></span><span class="rob-text"><strong>Sensitive result</strong> — nudge “${escapeHtml(sens.crit)}” ${dir} from ${sens.from} to ${sens.to} and it flips to “${escapeHtml(sens.newWinnerName)}.”</span>`;
+    }
+
     // Insight cards
     const insights = analyze(d);
     if (insights.length === 0) {
@@ -476,13 +560,33 @@
   }
 
   /* ---------- actions ---------- */
-  function createDecision() {
+  function openTemplateModal() {
+    el.templateGrid.innerHTML = TEMPLATES.map((t) => `
+      <button class="template-card" data-tpl="${t.id}">
+        <span class="tc-icon">${t.icon}</span>
+        <span><span class="tc-name">${escapeHtml(t.name)}</span><span class="tc-desc">${escapeHtml(t.desc)}</span></span>
+      </button>`).join("");
+    el.templateGrid.querySelectorAll(".template-card").forEach((btn) => {
+      btn.addEventListener("click", () => createFromTemplate(btn.dataset.tpl));
+    });
+    el.modal.hidden = false;
+  }
+
+  function closeTemplateModal() { el.modal.hidden = true; }
+
+  function createFromTemplate(tplId) {
+    const t = TEMPLATES.find((x) => x.id === tplId) || TEMPLATES[0];
     const d = makeDecision();
+    d.title = t.title || "";
+    d.criteria = t.criteria.map(([name, weight]) => ({ id: uid(), name, weight }));
     state.decisions.push(d);
     state.activeId = d.id;
     save();
+    closeTemplateModal();
     render();
-    el.title.focus();
+    // Blank starts with the title; templates jump you straight to adding options.
+    if (t.id === "blank") el.title.focus();
+    else el.optInput.focus();
   }
 
   function seedExampleIfEmpty() {
@@ -616,8 +720,11 @@
   }
 
   /* ---------- events ---------- */
-  el.newBtn.addEventListener("click", createDecision);
-  el.emptyNew.addEventListener("click", createDecision);
+  el.newBtn.addEventListener("click", openTemplateModal);
+  el.emptyNew.addEventListener("click", openTemplateModal);
+  el.modalClose.addEventListener("click", closeTemplateModal);
+  el.modal.addEventListener("click", (e) => { if (e.target === el.modal) closeTemplateModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !el.modal.hidden) closeTemplateModal(); });
 
   el.title.addEventListener("input", () => {
     const d = active();
