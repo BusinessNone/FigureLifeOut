@@ -166,31 +166,48 @@
   function normalizeDecision(d) {
     if (typeof d.title !== "string") d.title = "";
     if (typeof d.notes !== "string") d.notes = "";
-    if (!("gut" in d)) d.gut = null;
     if (!Array.isArray(d.criteria)) d.criteria = [];
     if (!Array.isArray(d.options)) d.options = [];
-    // Sanitize each criterion/option to a known shape; assign a fresh id to
-    // any entry missing one (e.g. hand-edited or older-format JSON) so
-    // scores (keyed by id) never silently orphan.
+
+    // Always mint fresh internal ids rather than trusting whatever a saved
+    // or imported payload provides. An id is interpolated directly into
+    // HTML attributes when rendering (data-opt="...", <option value="...">),
+    // so a crafted import file with e.g. id: '"><img src=x onerror=...>'
+    // would otherwise inject markup. Scores and the gut pick are remapped
+    // from old to new ids within this same pass, so nothing is orphaned.
+    const critMap = new Map();
     d.criteria = d.criteria
       .filter((c) => c && typeof c === "object")
-      .map((c) => ({ id: typeof c.id === "string" && c.id ? c.id : uid(), name: cleanStr(c.name, 40), weight: clampWeight(c.weight) }));
+      .map((c) => {
+        const id = uid();
+        if (typeof c.id === "string") critMap.set(c.id, id);
+        return { id, name: cleanStr(c.name, 40), weight: clampWeight(c.weight) };
+      });
+    const optMap = new Map();
     d.options = d.options
       .filter((o) => o && typeof o === "object")
-      .map((o) => ({ id: typeof o.id === "string" && o.id ? o.id : uid(), name: cleanStr(o.name, 40) }));
-    const critIds = new Set(d.criteria.map((c) => c.id));
-    const optIds = new Set(d.options.map((o) => o.id));
+      .map((o) => {
+        const id = uid();
+        if (typeof o.id === "string") optMap.set(o.id, id);
+        return { id, name: cleanStr(o.name, 40) };
+      });
+
     const rawScores = d.scores && typeof d.scores === "object" ? d.scores : {};
     const scores = {};
-    for (const optId of Object.keys(rawScores)) {
-      if (!optIds.has(optId) || !rawScores[optId] || typeof rawScores[optId] !== "object") continue;
-      for (const critId of Object.keys(rawScores[optId])) {
-        if (!critIds.has(critId)) continue;
-        const v = rawScores[optId][critId];
-        if (Number.isFinite(Number(v))) (scores[optId] || (scores[optId] = {}))[critId] = clampScore(v);
+    for (const oldOptId of Object.keys(rawScores)) {
+      const newOptId = optMap.get(oldOptId);
+      const row = rawScores[oldOptId];
+      if (!newOptId || !row || typeof row !== "object") continue;
+      for (const oldCritId of Object.keys(row)) {
+        const newCritId = critMap.get(oldCritId);
+        if (!newCritId) continue;
+        const v = row[oldCritId];
+        if (Number.isFinite(Number(v))) (scores[newOptId] || (scores[newOptId] = {}))[newCritId] = clampScore(v);
       }
     }
     d.scores = scores;
+    d.gut = typeof d.gut === "string" && optMap.has(d.gut) ? optMap.get(d.gut) : null;
+
     if (!Number.isFinite(d.createdAt)) d.createdAt = Date.now();
     if (!Number.isFinite(d.updatedAt)) d.updatedAt = d.createdAt;
     return d;

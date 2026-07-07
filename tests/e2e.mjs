@@ -368,6 +368,36 @@ test("importing sanitizes malformed decision entries instead of crashing", async
   assert.equal(scoreVal, "9");
 });
 
+test("importing a crafted id cannot break out of an HTML attribute", async (t) => {
+  const page = await freshPage(t);
+  // Criterion/option ids are interpolated into data-* attributes and an
+  // <option value>. A payload id could try to close the attribute/tag and
+  // inject markup — assert the app always mints its own internal ids
+  // instead of trusting whatever an imported file provides.
+  const evilId = `x" onmouseover="alert(1)"><img src=x onerror="alert(document.domain)`;
+  const fixture = {
+    decisions: [{
+      title: "Attack decision",
+      criteria: [{ id: evilId, name: "Speed", weight: 5 }],
+      options: [{ id: evilId, name: "Rocket" }],
+      scores: { [evilId]: { [evilId]: 7 } },
+      gut: evilId,
+    }],
+  };
+  const path = await writeFixture(t, "evil.json", fixture);
+  await page.setInputFiles("#import-file", path);
+  await page.waitForFunction(() => /Imported 1 decision/.test(document.querySelector("#toast")?.textContent || ""));
+
+  // No injected element and no dangling attribute leaked into the DOM.
+  assert.equal(await page.$$eval("img", (els) => els.length), 0, "no <img> should have been injected");
+  const dataOpt = await page.getAttribute(".score-cell input", "data-opt");
+  assert.ok(dataOpt && !dataOpt.includes('"'), `data-opt should be a clean internal id, got ${dataOpt}`);
+  // The score itself still made it through, remapped to the new safe id.
+  assert.equal(await page.$eval(".score-cell input", (el) => el.value), "7");
+  // The gut pick remapped too, and the option name rendered as plain text.
+  assert.equal(await page.$eval("#gut-select", (el) => el.selectedOptions[0]?.textContent), "Rocket");
+});
+
 test("share link round-trips a decision and keeps notes private", async (t) => {
   const ctx = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
   const page = await ctx.newPage();
