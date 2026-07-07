@@ -285,6 +285,31 @@ body {
 .insight strong { font-weight: 600; }
 .insights-empty { color: var(--c360-text-disabled); font-size: 0.875rem; padding: 6px 0; }
 
+/* Ring gauge — the C360 brand signature. Encodes scoring completeness only. */
+.ring-gauge {
+  position: relative; width: 52px; height: 52px; flex-shrink: 0;
+  display: grid; place-items: center;
+}
+.ring-gauge .ring { width: 52px; height: 52px; transform: rotate(-90deg); }
+.ring-gauge .ring-track { fill: none; stroke: var(--c360-border); stroke-width: 3; }
+.ring-gauge .ring-progress {
+  fill: none; stroke: var(--c360-accent); stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 106.814; stroke-dashoffset: 106.814;
+}
+.ring-gauge.low .ring-progress { stroke: var(--c360-warning); }
+.ring-gauge.full .ring-progress { stroke: var(--c360-success); }
+.ring-gauge .ring-val {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--c360-text-primary);
+}
+.ring-gauge .ring-cap {
+  position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+  font-size: 0.6875rem; line-height: 1rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--c360-text-secondary); white-space: nowrap;
+}
+.chart-panel .panel-head { align-items: flex-start; margin-bottom: 20px; }
+
 /* Robustness meter */
 .robustness {
   margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--c360-border);

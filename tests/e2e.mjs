@@ -198,6 +198,24 @@ test("score cells have screen-reader labels and Enter advances the grid", async 
   assert.deepEqual(pos, { r: "0", c: "1" });
 });
 
+test("coverage ring gauge tracks how much of the matrix is scored", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  await addCriterion(page, "A");
+  await addCriterion(page, "B");
+  await addOption(page, "X");
+  await addOption(page, "Y");
+  assert.equal(await page.getAttribute("#coverage", "role"), "meter");
+  await page.waitForFunction(() => document.querySelector("#coverage")?.getAttribute("aria-valuenow") === "0");
+  const inputs = await page.$$(".score-cell input");
+  await inputs[0].fill("5"); await inputs[1].fill("5"); // 2 of 4
+  await page.waitForFunction(() => document.querySelector("#coverage").getAttribute("aria-valuenow") === "50");
+  await inputs[2].fill("5"); await inputs[3].fill("5"); // 4 of 4
+  await page.waitForFunction(() => document.querySelector("#coverage").getAttribute("aria-valuenow") === "100");
+  assert.ok(await page.evaluate(() => document.querySelector("#coverage").classList.contains("full")), "100% should get the 'full' class");
+});
+
 test("template modal moves focus in and restores it on close", async (t) => {
   const page = await freshPage(t);
   await page.focus("#new-decision");

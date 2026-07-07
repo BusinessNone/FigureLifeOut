@@ -37,6 +37,8 @@ option on the same 0–10 scale, so comparisons stay honest.
 
 - ⚖️ Weighted criteria with live-updating results
 - 📊 Results chart — a weighted bar ranking so the standing reads at a glance
+- ◍ **Coverage ring** — the Cerulean360 signature ring gauge, showing how much of the matrix
+  you've actually scored; it turns amber when the matrix is too sparse to trust the result yet
 - 🧠 **Insight engine** — reasons about your matrix *on your device*: how decisive the
   result is, the single criterion the whole decision **hinges** on, options that are
   **dominated** (beaten on every criterion), whether your criteria actually separate the

@@ -74,8 +74,18 @@
         <div id="insight-wrap" class="insight-wrap" hidden>
           <div class="panel chart-panel">
             <div class="panel-head">
-              <h3>Where they stand</h3>
-              <span class="hint">weighted, 0–10</span>
+              <div>
+                <h3>Where they stand</h3>
+                <span class="hint">weighted, 0–10</span>
+              </div>
+              <div id="coverage" class="ring-gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Scoring completeness" hidden>
+                <svg class="ring" viewBox="0 0 40 40" aria-hidden="true">
+                  <circle class="ring-track" cx="20" cy="20" r="17" />
+                  <circle class="ring-progress" cx="20" cy="20" r="17" />
+                </svg>
+                <span class="ring-val">0%</span>
+                <span class="ring-cap">scored</span>
+              </div>
             </div>
             <div id="results-chart" class="results-chart"></div>
             <div id="robustness" hidden></div>

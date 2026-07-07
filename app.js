@@ -102,6 +102,7 @@
     chart: $("#results-chart"),
     insights: $("#insights-list"),
     robustness: $("#robustness"),
+    coverage: $("#coverage"),
     modal: $("#template-modal"),
     modalClose: $("#modal-close"),
     templateGrid: $("#template-grid"),
@@ -324,6 +325,7 @@
     renderMatrix(d);
     renderBanner(d);
     renderInsights(d);
+    renderCoverage(d);
   }
 
   function renderGutCheck(d) {
@@ -477,6 +479,7 @@
         updateTotals(d);
         renderBanner(d);
         renderInsights(d);
+        renderCoverage(d);
         renderSidebar();
       });
 
@@ -511,6 +514,50 @@
       tr.classList.toggle("leader", optId === leaderId);
       void th; // leader star handled by CSS
     });
+  }
+
+  // Ring gauge: share of option×criterion cells that have a score.
+  // Sweeps once (400ms) on first appearance; updates jump without animation.
+  let coverageSwept = false;
+  const RING_C = 2 * Math.PI * 17; // circumference for r=17
+
+  function renderCoverage(d) {
+    const total = d.options.length * d.criteria.length;
+    if (total === 0) {
+      el.coverage.hidden = true;
+      coverageSwept = false;
+      return;
+    }
+    el.coverage.hidden = false;
+    let filled = 0;
+    for (const o of d.options) {
+      for (const c of d.criteria) {
+        if (Number.isFinite(d.scores[o.id]?.[c.id])) filled++;
+      }
+    }
+    const pct = Math.round((filled / total) * 100);
+    const prog = el.coverage.querySelector(".ring-progress");
+    const offset = RING_C * (1 - pct / 100);
+
+    el.coverage.querySelector(".ring-val").textContent = `${pct}%`;
+    el.coverage.setAttribute("aria-valuenow", String(pct));
+    el.coverage.title = `${filled} of ${total} scores entered`;
+    el.coverage.classList.remove("low", "full");
+    if (pct >= 100) el.coverage.classList.add("full");
+    else if (pct < 60) el.coverage.classList.add("low");
+
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!coverageSwept && !reduce) {
+      prog.style.transition = "none";
+      prog.style.strokeDashoffset = String(RING_C); // start empty
+      void prog.getBoundingClientRect(); // force reflow
+      prog.style.transition = "stroke-dashoffset 400ms var(--c360-ease)";
+      requestAnimationFrame(() => { prog.style.strokeDashoffset = String(offset); });
+      coverageSwept = true;
+    } else {
+      prog.style.transition = "none";
+      prog.style.strokeDashoffset = String(offset);
+    }
   }
 
   function renderInsights(d) {
