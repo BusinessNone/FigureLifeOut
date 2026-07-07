@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A weighted decision engine that runs entirely on your device.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "serve": "node scripts/serve.mjs",

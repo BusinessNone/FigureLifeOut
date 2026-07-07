@@ -102,6 +102,10 @@ then publishes to `https://<user>.github.io/<repo>/` and is installable from the
 A `.nojekyll` file is included so files are always served verbatim, even if Pages is ever
 switched to the "Deploy from a branch" source.
 
+## License
+
+[MIT](LICENSE) — free to use, modify, and distribute.
+
 ---
 
 *A first decision is seeded as an example — delete it once you've had a look.*
