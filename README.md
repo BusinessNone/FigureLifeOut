@@ -72,9 +72,13 @@ No dependencies. Open the file, or serve the folder with any static host.
 
 ## Deploying
 
-Pushing to `main` triggers the included GitHub Actions workflow. To turn it on once:
-**repo Settings → Pages → Build and deployment → Source: "GitHub Actions".** The app then
-publishes to `https://<user>.github.io/<repo>/` and is installable from there.
+This is a **static site — no Jekyll**. Pushing to `main` triggers the included GitHub
+Actions workflow, which uploads the folder as-is (Jekyll is never invoked). To turn it on
+once: **repo Settings → Pages → Build and deployment → Source: "GitHub Actions".** The app
+then publishes to `https://<user>.github.io/<repo>/` and is installable from there.
+
+A `.nojekyll` file is included so files are always served verbatim, even if Pages is ever
+switched to the "Deploy from a branch" source.
 
 ---
 
