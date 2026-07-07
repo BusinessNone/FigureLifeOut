@@ -7,9 +7,11 @@
   "type": "module",
   "scripts": {
     "serve": "node scripts/serve.mjs",
+    "lint": "eslint app.js scripts tests eslint.config.js",
     "test": "node --test tests/*.mjs"
   },
   "devDependencies": {
+    "eslint": "^10.1.0",
     "playwright": "^1.48.0"
   }
 }

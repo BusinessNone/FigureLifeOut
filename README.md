@@ -97,12 +97,14 @@ sensitivity analysis, the gut check, keyboard navigation, shareable links, persi
 offline PWA behavior.
 
 ```bash
-npm install          # dev dependency: Playwright
+npm install          # dev dependencies: ESLint, Playwright
 npx playwright install chromium
+npm run lint         # ESLint (flat config)
 npm test             # runs tests/e2e.mjs against a local static server
 ```
 
-CI runs the same suite on every push and pull request (`.github/workflows/ci.yml`).
+CI runs lint and the full test suite on every push and pull request
+(`.github/workflows/ci.yml`).
 
 ## Deploying
 

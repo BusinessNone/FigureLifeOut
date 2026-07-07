@@ -55,7 +55,7 @@
     }
   };
 
-  let state = load();
+  const state = load();
   let sortByScore = false; // matrix view preference (session-only)
 
   /* Starter templates — curated criteria with sensible default weights. */
