@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FigureLifeOut — a weighted decision matrix to help you make big life decisions with clarity." />
+  <title>FigureLifeOut — Make big decisions with clarity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧭%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🧭</span>
+      <div>
+        <h1>FigureLifeOut</h1>
+        <p class="tagline">Turn a hard choice into a clear one.</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle light/dark theme">🌙</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Sidebar: saved decisions -->
+    <aside class="sidebar" aria-label="Your decisions">
+      <div class="sidebar-head">
+        <h2>Decisions</h2>
+        <button id="new-decision" class="btn btn-primary btn-sm">+ New</button>
+      </div>
+      <ul id="decision-list" class="decision-list"></ul>
+      <div class="sidebar-foot">
+        <button id="export-btn" class="btn btn-ghost btn-sm">Export</button>
+        <button id="import-btn" class="btn btn-ghost btn-sm">Import</button>
+        <input id="import-file" type="file" accept="application/json" hidden />
+      </div>
+    </aside>
+
+    <!-- Main workspace -->
+    <section class="workspace" id="workspace">
+      <div class="empty-state" id="empty-state" hidden>
+        <div class="empty-illustration" aria-hidden="true">🧭</div>
+        <h2>Nothing to figure out… yet</h2>
+        <p>Create a decision to weigh your options against what actually matters to you.</p>
+        <button class="btn btn-primary" id="empty-new">Start a decision</button>
+      </div>
+
+      <div id="decision-editor" hidden>
+        <div class="editor-head">
+          <input id="decision-title" class="title-input" type="text" placeholder="What are you deciding?" />
+          <button id="delete-decision" class="icon-btn danger" title="Delete this decision" aria-label="Delete decision">🗑</button>
+        </div>
+
+        <!-- Result banner -->
+        <div id="result-banner" class="result-banner" hidden></div>
+
+        <div class="panels">
+          <!-- Criteria panel -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>What matters</h3>
+              <span class="hint">weight 1–10</span>
+            </div>
+            <ul id="criteria-list" class="chip-list"></ul>
+            <form id="criterion-form" class="add-row">
+              <input id="criterion-input" type="text" placeholder="Add a criterion (e.g. Salary)" maxlength="40" />
+              <button class="btn btn-primary btn-sm" type="submit">Add</button>
+            </form>
+          </div>
+
+          <!-- Options panel -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Your options</h3>
+            </div>
+            <ul id="options-list" class="chip-list"></ul>
+            <form id="option-form" class="add-row">
+              <input id="option-input" type="text" placeholder="Add an option (e.g. Take the job)" maxlength="40" />
+              <button class="btn btn-primary btn-sm" type="submit">Add</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Scoring matrix -->
+        <div class="panel matrix-panel">
+          <div class="panel-head">
+            <h3>Score each option</h3>
+            <span class="hint">rate 0–10 for how well each option satisfies each criterion</span>
+          </div>
+          <div class="matrix-scroll">
+            <table id="matrix" class="matrix"></table>
+          </div>
+          <p id="matrix-empty" class="matrix-empty">Add at least one criterion and one option to start scoring.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>Everything stays on your device — nothing is uploaded.</span>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
