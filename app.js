@@ -414,19 +414,20 @@
       ? [...d.options].sort((a, b) => (normById.get(b.id) || 0) - (normById.get(a.id) || 0))
       : d.options;
 
-    for (const o of ordered) {
+    ordered.forEach((o, ri) => {
       const isLeader = o.id === leaderId;
       html += `<tr class="${isLeader ? "leader" : ""}"><th>${escapeHtml(o.name)}</th>`;
-      for (const c of d.criteria) {
+      d.criteria.forEach((c, ci) => {
         const v = d.scores[o.id]?.[c.id];
         const val = Number.isFinite(v) ? v : "";
         const bg = Number.isFinite(v) ? ` style="background:${heatColor(v)}"` : "";
         html += `<td class="score-cell"><input type="number" min="0" max="10" step="1"
-          data-opt="${o.id}" data-crit="${c.id}" value="${val}" placeholder="0"${bg} /></td>`;
-      }
+          data-opt="${o.id}" data-crit="${c.id}" data-r="${ri}" data-c="${ci}"
+          aria-label="${escapeHtml(o.name)} — ${escapeHtml(c.name)}" value="${val}" placeholder="0"${bg} /></td>`;
+      });
       const norm = normById.get(o.id) || 0;
       html += `<td class="total-cell">${norm.toFixed(1)}</td></tr>`;
-    }
+    });
     html += "</tbody>";
     el.matrix.innerHTML = html;
 
@@ -451,6 +452,20 @@
         renderBanner(d);
         renderInsights(d);
         renderSidebar();
+      });
+
+      // Enter advances down the column, wrapping to the top of the next one —
+      // fast keyboard scoring. (Arrow keys keep their native increment behavior.)
+      input.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        const nCols = d.criteria.length;
+        const nRows = ordered.length;
+        let r = Number(input.dataset.r) + 1;
+        let c = Number(input.dataset.c);
+        if (r >= nRows) { r = 0; c = (c + 1) % nCols; }
+        const next = el.matrix.querySelector(`input[data-r="${r}"][data-c="${c}"]`);
+        if (next) { next.focus(); next.select(); }
       });
     });
   }
@@ -561,7 +576,10 @@
   }
 
   /* ---------- actions ---------- */
+  let modalReturnFocus = null;
+
   function openTemplateModal() {
+    modalReturnFocus = document.activeElement;
     el.templateGrid.innerHTML = TEMPLATES.map((t) => `
       <button class="template-card" data-tpl="${t.id}">
         <span class="tc-icon">${t.icon}</span>
@@ -571,9 +589,28 @@
       btn.addEventListener("click", () => createFromTemplate(btn.dataset.tpl));
     });
     el.modal.hidden = false;
+    // Move focus into the dialog for keyboard and screen-reader users.
+    (el.templateGrid.querySelector(".template-card") || el.modalClose).focus();
   }
 
-  function closeTemplateModal() { el.modal.hidden = true; }
+  function closeTemplateModal() {
+    el.modal.hidden = true;
+    if (modalReturnFocus && typeof modalReturnFocus.focus === "function") modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  // Keep Tab focus inside the open dialog.
+  el.modal.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const focusable = Array.from(
+      el.modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")
+    ).filter((x) => !x.disabled && x.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   function createFromTemplate(tplId) {
     const t = TEMPLATES.find((x) => x.id === tplId) || TEMPLATES[0];

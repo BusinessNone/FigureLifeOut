@@ -55,6 +55,9 @@ option on the same 0–10 scale, so comparisons stay honest.
   it, see it, and tweak it. The data rides in the URL (no server stores it), and your
   private notes and gut pick are deliberately left out of the link.
 - 🗂 Multiple saved decisions, kept in your browser's local storage
+- ⌨️ **Keyboard-first & accessible** — fly through the score grid with Tab/Enter, a
+  focus-trapped template dialog that restores focus, screen-reader labels on every score
+  cell, visible focus rings, and `prefers-reduced-motion` support
 - 🌗 Light / dark theme
 - 📤 Export / import as JSON (portable backups) or export the matrix as CSV
 - 📱 Responsive — works on phone and desktop
@@ -78,7 +81,8 @@ dev-only dependency used for testing. Open `index.html`, or serve the folder wit
 ## Testing
 
 End-to-end tests drive a real headless browser and cover scoring, the insight engine,
-sensitivity analysis, the gut check, shareable links, persistence, and offline PWA behavior.
+sensitivity analysis, the gut check, keyboard navigation, shareable links, persistence, and
+offline PWA behavior.
 
 ```bash
 npm install          # dev dependency: Playwright

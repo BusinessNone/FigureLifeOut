@@ -54,6 +54,9 @@ test("seeded example shows a winner, chart, and robustness readout", async (t) =
   assert.equal(await page.textContent(".rb-winner"), "Take the offer");
   assert.ok((await page.$$(".bar-row")).length >= 2, "expected chart bars");
   assert.match(await page.textContent("#robustness"), /result/i);
+  // The empty state must be genuinely hidden (not just [hidden] with a
+  // display rule overriding it) when a decision is active.
+  assert.ok(!(await page.isVisible("#empty-state")), "empty state should be hidden when a decision is open");
 });
 
 test("job template pre-fills criteria and title", async (t) => {
@@ -160,6 +163,43 @@ test("cleared decisions do not resurrect the seeded example on reload", async (t
   await page.reload();
   await page.waitForSelector("#empty-state:not([hidden])");
   assert.equal((await page.$$("#decision-list li")).length, 0, "seeded example resurrected after reload");
+});
+
+test("score cells have screen-reader labels and Enter advances the grid", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  await addCriterion(page, "A");
+  await addCriterion(page, "B");
+  await addOption(page, "X");
+  await addOption(page, "Y");
+
+  // Accessible label: option — criterion.
+  assert.equal(await page.getAttribute('input[data-r="0"][data-c="0"]', "aria-label"), "X — A");
+
+  // Enter moves down a column, then wraps to the top of the next column.
+  await page.focus('input[data-r="0"][data-c="0"]');
+  await page.keyboard.type("5");
+  await page.keyboard.press("Enter");
+  let pos = await page.evaluate(() => ({ r: document.activeElement.dataset.r, c: document.activeElement.dataset.c }));
+  assert.deepEqual(pos, { r: "1", c: "0" });
+  await page.keyboard.press("Enter"); // bottom of column 0 -> top of column 1
+  pos = await page.evaluate(() => ({ r: document.activeElement.dataset.r, c: document.activeElement.dataset.c }));
+  assert.deepEqual(pos, { r: "0", c: "1" });
+});
+
+test("template modal moves focus in and restores it on close", async (t) => {
+  const page = await freshPage(t);
+  await page.focus("#new-decision");
+  await page.keyboard.press("Enter"); // open via keyboard
+  await page.waitForSelector("#template-modal:not([hidden])");
+  assert.ok(
+    await page.evaluate(() => document.activeElement.classList.contains("template-card")),
+    "focus should move to the first template card"
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#template-modal", { state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement.id), "new-decision", "focus should return to the trigger");
 });
 
 test("share link round-trips a decision and keeps notes private", async (t) => {
