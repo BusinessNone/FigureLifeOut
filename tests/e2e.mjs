@@ -244,6 +244,29 @@ test("coverage ring gauge tracks how much of the matrix is scored", async (t) =>
   assert.ok(await page.evaluate(() => document.querySelector("#coverage").classList.contains("full")), "100% should get the 'full' class");
 });
 
+test("criteria reorder by keyboard, update the matrix, and persist", async (t) => {
+  const page = await freshPage(t);
+  const before = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
+  // Focus the first criterion's drag handle and move it down one.
+  await page.locator("#criteria-list .chip .chip-handle").first().focus();
+  await page.keyboard.press("ArrowDown");
+  await page.waitForFunction(
+    (first) => document.querySelector("#criteria-list .chip-name")?.textContent !== first,
+    before[0]
+  );
+  const after = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
+  assert.equal(after[0], before[1], "second criterion moved to first");
+  assert.equal(after[1], before[0], "first criterion moved to second");
+  // Matrix column order reflects the new criteria order.
+  const cols = await page.$$eval("#matrix thead th.crit-head", (els) => els.map((e) => e.childNodes[0].textContent.trim()));
+  assert.equal(cols[0], before[1]);
+  // Persists across reload.
+  await page.reload();
+  await page.waitForSelector("#criteria-list .chip-name");
+  const reloaded = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
+  assert.deepEqual(reloaded, after, "reordering should persist");
+});
+
 test("template modal moves focus in and restores it on close", async (t) => {
   const page = await freshPage(t);
   await page.focus("#new-decision");

@@ -25,6 +25,8 @@
     "shopping-cart": `<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>`,
     "file-pen": `<path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/>`,
     "heart-pulse": `<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>`,
+    "grip-vertical": `<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>`,
+    x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
   };
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -366,18 +368,94 @@
     }
   }
 
+  /* ---------- reordering (drag + keyboard) for criteria/options ---------- */
+  let dragId = null;
+
+  function reorderArr(arr, fromId, toId, after) {
+    const from = arr.findIndex((x) => x.id === fromId);
+    if (from < 0) return;
+    const [item] = arr.splice(from, 1);
+    const to = arr.findIndex((x) => x.id === toId);
+    if (to < 0) { arr.push(item); return; }
+    arr.splice(after ? to + 1 : to, 0, item);
+  }
+
+  function moveInArr(arr, id, delta) {
+    const i = arr.findIndex((x) => x.id === id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= arr.length) return false;
+    const [item] = arr.splice(i, 1);
+    arr.splice(j, 0, item);
+    return true;
+  }
+
+  const dropAfter = (e, li) => {
+    const r = li.getBoundingClientRect();
+    return e.clientY - r.top > r.height / 2;
+  };
+  const clearDropMarks = (listEl) =>
+    listEl.querySelectorAll(".drop-before, .drop-after")
+      .forEach((x) => x.classList.remove("drop-before", "drop-after"));
+
+  // Wire a chip for reorder. Operates on d[key] live so it survives re-renders.
+  function makeReorderable(li, handle, d, key, id, listEl) {
+    li.dataset.id = id;
+    handle.setAttribute("draggable", "true");
+
+    handle.addEventListener("dragstart", (e) => {
+      dragId = id;
+      li.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+      e.dataTransfer.setDragImage(li, 12, 12);
+    });
+    handle.addEventListener("dragend", () => {
+      li.classList.remove("dragging");
+      clearDropMarks(listEl);
+      dragId = null;
+    });
+    handle.addEventListener("keydown", (e) => {
+      const delta = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+      if (!delta) return;
+      e.preventDefault();
+      if (moveInArr(d[key], id, delta)) {
+        save();
+        render();
+        const moved = listEl.querySelector(`.chip[data-id="${id}"] .chip-handle`);
+        if (moved) moved.focus();
+      }
+    });
+
+    li.addEventListener("dragover", (e) => {
+      if (dragId === null || dragId === id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      clearDropMarks(listEl);
+      li.classList.add(dropAfter(e, li) ? "drop-after" : "drop-before");
+    });
+    li.addEventListener("drop", (e) => {
+      if (dragId === null || dragId === id) return;
+      e.preventDefault();
+      reorderArr(d[key], dragId, id, dropAfter(e, li));
+      save();
+      render();
+    });
+  }
+
   function renderCriteria(d) {
     el.criteria.innerHTML = "";
     for (const c of d.criteria) {
       const li = document.createElement("li");
       li.className = "chip";
       li.innerHTML = `
+        <button class="chip-handle" aria-label="Reorder ${escapeHtml(c.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
         <span class="weight-control">
           <input type="range" min="1" max="10" value="${c.weight}" aria-label="Weight for ${escapeHtml(c.name)}" />
           <span class="weight-val">${c.weight}</span>
         </span>
-        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(c.name)}">×</button>`;
+        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(c.name)}">${icon("x")}</button>`;
+      makeReorderable(li, li.querySelector(".chip-handle"), d, "criteria", c.id, el.criteria);
       const range = li.querySelector("input");
       const val = li.querySelector(".weight-val");
       range.addEventListener("input", () => {
@@ -423,8 +501,10 @@
       const li = document.createElement("li");
       li.className = "chip";
       li.innerHTML = `
+        <button class="chip-handle" aria-label="Reorder ${escapeHtml(o.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(o.name)}">${escapeHtml(o.name)}</span>
-        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(o.name)}">×</button>`;
+        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(o.name)}">${icon("x")}</button>`;
+      makeReorderable(li, li.querySelector(".chip-handle"), d, "options", o.id, el.options);
       li.querySelector(".remove").addEventListener("click", () => {
         const idx = d.options.findIndex((x) => x.id === o.id);
         const removedScores = d.scores[o.id];

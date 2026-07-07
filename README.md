@@ -59,6 +59,8 @@ option on the same 0–10 scale, so comparisons stay honest.
 - ↩️ **Undoable deletes** — removing a decision, criterion, or option surfaces an Undo toast
   and restores it (with its scores) in place; no blocking confirm dialogs
 - 🗂 Multiple saved decisions, kept in your browser's local storage
+- ↕️ **Reorder criteria & options** — drag by the handle, or focus it and use the arrow
+  keys; the matrix columns and rows follow, and the order persists
 - ⌨️ **Keyboard-first & accessible** — fly through the score grid with Tab/Enter, a
   focus-trapped template dialog that restores focus, screen-reader labels on every score
   cell, visible focus rings, and `prefers-reduced-motion` support
