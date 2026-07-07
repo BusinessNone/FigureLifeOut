@@ -260,6 +260,8 @@ test("criteria reorder by keyboard, update the matrix, and persist", async (t) =
   // Matrix column order reflects the new criteria order.
   const cols = await page.$$eval("#matrix thead th.crit-head", (els) => els.map((e) => e.childNodes[0].textContent.trim()));
   assert.equal(cols[0], before[1]);
+  // A screen-reader announcement was made for the move.
+  assert.match(await page.textContent("#live"), /moved to position 2 of 4/);
   // Persists across reload.
   await page.reload();
   await page.waitForSelector("#criteria-list .chip-name");

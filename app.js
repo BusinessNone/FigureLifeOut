@@ -129,6 +129,7 @@
     matrixEmpty: $("#matrix-empty"),
     themeToggle: $("#theme-toggle"),
     toast: $("#toast"),
+    live: $("#live"),
     exportBtn: $("#export-btn"),
     importBtn: $("#import-btn"),
     importFile: $("#import-file"),
@@ -454,6 +455,10 @@
         render();
         const moved = listEl.querySelector(`.chip[data-id="${id}"] .chip-handle`);
         if (moved) moved.focus();
+        const arr = d[key];
+        const pos = arr.findIndex((x) => x.id === id);
+        const item = arr[pos];
+        if (item) announce(`${item.name} moved to position ${pos + 1} of ${arr.length}`);
       }
     });
 
@@ -1084,6 +1089,13 @@
     t.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  }
+
+  // Announce to screen readers via the polite live region.
+  function announce(msg) {
+    el.live.textContent = "";
+    // Next tick so repeated identical messages are still read.
+    requestAnimationFrame(() => { el.live.textContent = msg; });
   }
 
   function escapeHtml(s) {
