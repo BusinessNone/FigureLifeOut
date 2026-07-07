@@ -27,6 +27,8 @@
     "heart-pulse": `<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>`,
     "grip-vertical": `<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>`,
     x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
+    keyboard: `<path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/>`,
+    clock: `<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>`,
   };
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -108,6 +110,9 @@
     modal: $("#template-modal"),
     modalClose: $("#modal-close"),
     templateGrid: $("#template-grid"),
+    helpBtn: $("#help-btn"),
+    helpModal: $("#help-modal"),
+    helpClose: $("#help-close"),
     notes: $("#notes-input"),
     sortToggle: $("#sort-toggle"),
     csvBtn: $("#csv-btn"),
@@ -782,18 +787,33 @@
     modalReturnFocus = null;
   }
 
-  // Keep Tab focus inside the open dialog.
-  el.modal.addEventListener("keydown", (e) => {
-    if (e.key !== "Tab") return;
-    const focusable = Array.from(
-      el.modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")
-    ).filter((x) => !x.disabled && x.offsetParent !== null);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  });
+  function openHelp() {
+    modalReturnFocus = document.activeElement;
+    el.helpModal.hidden = false;
+    el.helpClose.focus();
+  }
+  function closeHelp() {
+    el.helpModal.hidden = true;
+    if (modalReturnFocus && typeof modalReturnFocus.focus === "function") modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  // Keep Tab focus inside an open dialog.
+  function attachTabTrap(modalEl) {
+    modalEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab") return;
+      const focusable = Array.from(
+        modalEl.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")
+      ).filter((x) => !x.disabled && x.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+  }
+  attachTabTrap(el.modal);
+  attachTabTrap(el.helpModal);
 
   function createFromTemplate(tplId) {
     const t = TEMPLATES.find((x) => x.id === tplId) || TEMPLATES[0];
@@ -1057,7 +1077,26 @@
   el.emptyNew.addEventListener("click", openTemplateModal);
   el.modalClose.addEventListener("click", closeTemplateModal);
   el.modal.addEventListener("click", (e) => { if (e.target === el.modal) closeTemplateModal(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !el.modal.hidden) closeTemplateModal(); });
+
+  el.helpBtn.addEventListener("click", openHelp);
+  el.helpClose.addEventListener("click", closeHelp);
+  el.helpModal.addEventListener("click", (e) => { if (e.target === el.helpModal) closeHelp(); });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!el.modal.hidden) closeTemplateModal();
+      else if (!el.helpModal.hidden) closeHelp();
+      return;
+    }
+    // "?" opens help, unless a dialog is open or the user is typing.
+    if (e.key === "?") {
+      const t = e.target;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      if (typing || !el.modal.hidden || !el.helpModal.hidden) return;
+      e.preventDefault();
+      openHelp();
+    }
+  });
 
   el.title.addEventListener("input", () => {
     const d = active();

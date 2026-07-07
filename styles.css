@@ -508,6 +508,16 @@ kbd {
 .template-card .tc-name { display: block; font-weight: 600; font-size: 0.875rem; }
 .template-card .tc-desc { display: block; font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-secondary); margin-top: 2px; }
 
+/* ---------- Keyboard shortcuts list ---------- */
+.shortcut-list { display: flex; flex-direction: column; }
+.shortcut-list > div {
+  display: flex; align-items: baseline; gap: 16px;
+  padding: 10px 0; border-bottom: 1px solid var(--c360-border);
+}
+.shortcut-list > div:last-child { border-bottom: none; }
+.shortcut-list dt { flex: 0 0 38%; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.shortcut-list dd { color: var(--c360-text-secondary); font-size: 0.875rem; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }

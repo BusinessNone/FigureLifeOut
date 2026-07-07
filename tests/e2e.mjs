@@ -310,6 +310,27 @@ test("share link round-trips a decision and keeps notes private", async (t) => {
   assert.ok(!recipient.url().includes("#d="), "hash should be cleared after import");
 });
 
+test("keyboard shortcuts help opens via ? and button, closes on Escape", async (t) => {
+  const page = await freshPage(t);
+  // Opens with the "?" key (not while typing).
+  await page.keyboard.press("Shift+Slash");
+  await page.waitForSelector("#help-modal:not([hidden])");
+  assert.ok((await page.$$eval(".shortcut-list > div", (els) => els.length)) >= 4, "should list shortcuts");
+  // Escape closes and restores focus behaviour.
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#help-modal", { state: "hidden" });
+  // Also opens via the header button.
+  await page.click("#help-btn");
+  await page.waitForSelector("#help-modal:not([hidden])");
+  assert.ok(await page.evaluate(() => document.activeElement.id === "help-close"), "focus moves into the dialog");
+  await page.click("#help-close");
+  await page.waitForSelector("#help-modal", { state: "hidden" });
+
+  // "?" must NOT trigger while typing in a field.
+  await page.fill("#criterion-input", "a?b");
+  assert.ok(await page.$("#help-modal[hidden]"), "help stays closed while typing");
+});
+
 test("editor actions stay on-screen on a narrow (mobile) viewport", async (t) => {
   const ctx = await browser.newContext({ viewport: { width: 375, height: 720 } });
   const page = await ctx.newPage();

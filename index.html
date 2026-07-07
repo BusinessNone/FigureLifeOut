@@ -23,6 +23,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button id="help-btn" class="icon-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg></button>
       <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle light/dark theme"></button>
     </div>
   </header>
@@ -167,6 +168,23 @@
       </div>
       <p class="modal-sub">Pick a starting point — or start blank. You can change everything later.</p>
       <div id="template-grid" class="template-grid"></div>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts help -->
+  <div id="help-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="modal-head">
+        <h2 id="help-title">Keyboard shortcuts</h2>
+        <button id="help-close" class="icon-btn" aria-label="Close"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <dl class="shortcut-list">
+        <div><dt><kbd>Enter</kbd></dt><dd>Move down the score grid</dd></div>
+        <div><dt><kbd>Tab</kbd> · <kbd>Shift</kbd>+<kbd>Tab</kbd></dt><dd>Move between fields and cells</dd></div>
+        <div><dt><kbd>↑</kbd> · <kbd>↓</kbd></dt><dd>Reorder a criterion or option — focus its drag handle first</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close a dialog</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
+      </dl>
     </div>
   </div>
 
