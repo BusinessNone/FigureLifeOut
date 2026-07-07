@@ -188,6 +188,31 @@ test("deleting a decision can be undone from the toast", async (t) => {
   assert.equal((await page.$$("#decision-list li")).length, 1);
 });
 
+test("CSV export neutralizes formula-injection payloads", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  // A criterion/option name that looks like a spreadsheet formula — this
+  // could arrive via an imported or shared decision, not just typed by hand.
+  await addCriterion(page, "=cmd|'/c calc'!A1");
+  await addOption(page, "@SUM(1+1)");
+  const inputs = await page.$$(".score-cell input");
+  await inputs[0].fill("5");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#csv-btn"),
+  ]);
+  const stream = await download.createReadStream();
+  let csv = "";
+  for await (const chunk of stream) csv += chunk;
+
+  assert.ok(!/(^|,)"=cmd/.test(csv), `formula-leading cell must be neutralized, got: ${csv}`);
+  assert.ok(!/(^|,)"@SUM/.test(csv), `formula-leading cell must be neutralized, got: ${csv}`);
+  assert.match(csv, /"'=cmd/, "criterion header should be prefixed with an apostrophe");
+  assert.match(csv, /"'@SUM/, "option cell should be prefixed with an apostrophe");
+});
+
 test("removing a criterion is undoable and restores its scores", async (t) => {
   const page = await freshPage(t);
   // Seeded decision leads with "Take the offer"; remove the top criterion, then undo.

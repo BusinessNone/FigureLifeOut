@@ -1062,7 +1062,16 @@
     }
     const { rows } = computeResults(d);
     const normById = new Map(rows.map((r) => [r.opt.id, r.normalized]));
-    const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    // Neutralize CSV/formula injection: a criterion or option name coming
+    // from an imported or shared decision could start with =, +, -, @ (or
+    // a tab/CR) and be interpreted as a formula by Excel/Sheets when the
+    // exported file is opened. Prefixing with an apostrophe forces it to
+    // be read as text — the standard mitigation for CWE-1236.
+    const esc = (s) => {
+      let v = String(s);
+      if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
+      return `"${v.replace(/"/g, '""')}"`;
+    };
     const header = ["Option", ...d.criteria.map((c) => `${c.name} (x${c.weight})`), "Weighted score"];
     const lines = [header.map(esc).join(",")];
     for (const o of d.options) {
