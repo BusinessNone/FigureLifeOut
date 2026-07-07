@@ -680,8 +680,16 @@
     html += `<th class="total-head">Score</th></tr></thead><tbody>`;
 
     // Sorting by score is opt-in; default keeps entry order so the grid doesn't jump while typing.
+    // Qualifying options always sort ahead of disqualified ones (matching
+    // computeResults) — otherwise a disqualified option with a high raw
+    // score could rank above the actual leader, which is exactly the
+    // misleading result dealbreakers exist to prevent.
     const ordered = sortByScore
-      ? [...d.options].sort((a, b) => (normById.get(b.id) || 0) - (normById.get(a.id) || 0))
+      ? [...d.options].sort((a, b) => {
+          const da = disqById.get(a.id)?.disqualified ? 1 : 0;
+          const db = disqById.get(b.id)?.disqualified ? 1 : 0;
+          return da !== db ? da - db : (normById.get(b.id) || 0) - (normById.get(a.id) || 0);
+        })
       : d.options;
 
     ordered.forEach((o, ri) => {

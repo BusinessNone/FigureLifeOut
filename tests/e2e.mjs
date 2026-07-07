@@ -106,6 +106,44 @@ test("scoring computes a weighted result and reweighting flips the winner", asyn
   await page.waitForFunction(() => /Denver is now leading/.test(document.querySelector("#live")?.textContent || ""));
 });
 
+test("dealbreaker: sort-by-score never ranks a disqualified option above a qualifying one", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  // A lightly-weighted dealbreaker + a heavily-weighted normal criterion:
+  // an option that fails the dealbreaker but excels elsewhere can still
+  // out-score a genuinely qualifying option on raw weighted total.
+  await addCriterion(page, "Dealbreaker crit");
+  await addCriterion(page, "Big weight crit");
+  await addOption(page, "HighButDisqualified");
+  await addOption(page, "QualifiesLower");
+  const ranges = await page.$$(".chip input[type=range]");
+  await ranges[0].evaluate((r) => { r.value = 1; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await ranges[1].evaluate((r) => { r.value = 10; r.dispatchEvent(new Event("input", { bubbles: true })); });
+  await page.click("#criteria-list .chip:first-child .dealbreaker-toggle");
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+
+  // HighButDisqualified: fails the dealbreaker (1) but scores max elsewhere.
+  await page.fill('input[data-r="0"][data-c="0"]', "1");
+  await page.fill('input[data-r="0"][data-c="1"]', "10");
+  // QualifiesLower: passes the dealbreaker but scores modestly elsewhere.
+  await page.fill('input[data-r="1"][data-c="0"]', "8");
+  await page.fill('input[data-r="1"][data-c="1"]', "5");
+  await page.waitForFunction(() => document.querySelector(".rb-winner")?.textContent === "QualifiesLower");
+
+  // Sanity: the disqualified option really does have the higher raw score
+  // (proving this scenario actually exercises the sort, not just totals).
+  const totalsUnsorted = await page.$$eval(".total-cell", (els) => els.map((e) => parseFloat(e.textContent)));
+  assert.ok(totalsUnsorted[0] > totalsUnsorted[1], "test setup should give the disqualified option the higher score");
+
+  await page.click("#sort-toggle");
+  await page.waitForFunction(() => document.querySelector(".matrix tbody tr th")?.textContent.includes("QualifiesLower"));
+  const firstRowName = await page.$eval(".matrix tbody tr:first-child th", (el) => el.textContent);
+  assert.match(firstRowName, /QualifiesLower/);
+  const firstRowDisqualified = await page.$eval(".matrix tbody tr:first-child", (el) => el.classList.contains("disqualified"));
+  assert.equal(firstRowDisqualified, false, "the top row after sorting must not be the disqualified option");
+});
+
 test("dealbreaker: a low score disqualifies an option even if it would otherwise win", async (t) => {
   const page = await freshPage(t);
   // Seeded example: "Take the offer" normally leads. Mark Salary (its
