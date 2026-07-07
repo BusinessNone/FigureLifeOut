@@ -71,6 +71,7 @@
     title: $("#decision-title"),
     deleteBtn: $("#delete-decision"),
     duplicateBtn: $("#duplicate-decision"),
+    shareBtn: $("#share-decision"),
     banner: $("#result-banner"),
     gutCheck: $("#gut-check"),
     gutSelect: $("#gut-select"),
@@ -630,6 +631,100 @@
     toast("Duplicated — tweak away without losing the original.");
   }
 
+  /* ---------- shareable links (data rides in the URL; no server) ---------- */
+  function b64urlEncode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64urlDecode(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    const bin = atob(s);
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  }
+
+  const clampWeight = (w) => Math.max(1, Math.min(10, Math.round(Number(w)) || 5));
+
+  // Compact payload; deliberately omits notes and gut pick to keep them private.
+  function encodeDecision(d) {
+    const payload = {
+      t: d.title,
+      c: d.criteria.map((c) => [c.name, c.weight]),
+      o: d.options.map((o) => o.name),
+      s: d.options.map((o) => d.criteria.map((c) => {
+        const v = d.scores[o.id]?.[c.id];
+        return Number.isFinite(v) ? v : null;
+      })),
+    };
+    return b64urlEncode(JSON.stringify(payload));
+  }
+
+  function decodeDecision(str) {
+    const p = JSON.parse(b64urlDecode(str));
+    const d = makeDecision();
+    d.title = typeof p.t === "string" ? p.t : "";
+    d.criteria = (Array.isArray(p.c) ? p.c : []).map(([name, weight]) => ({
+      id: uid(), name: String(name).slice(0, 40), weight: clampWeight(weight),
+    }));
+    d.options = (Array.isArray(p.o) ? p.o : []).map((name) => ({ id: uid(), name: String(name).slice(0, 40) }));
+    d.scores = {};
+    (Array.isArray(p.s) ? p.s : []).forEach((row, oi) => {
+      const opt = d.options[oi];
+      if (!opt || !Array.isArray(row)) return;
+      row.forEach((val, ci) => {
+        const crit = d.criteria[ci];
+        if (crit && Number.isFinite(val)) {
+          (d.scores[opt.id] || (d.scores[opt.id] = {}))[crit.id] = Math.max(0, Math.min(10, val));
+        }
+      });
+    });
+    return d;
+  }
+
+  async function copyLink(url) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        return true;
+      }
+    } catch { /* fall through */ }
+    return false;
+  }
+
+  function shareDecision() {
+    const d = active();
+    if (!d) return;
+    if (d.criteria.length === 0 && d.options.length === 0) {
+      toast("Add some criteria and options first.");
+      return;
+    }
+    const url = location.origin + location.pathname + "#d=" + encodeDecision(d);
+    copyLink(url).then((ok) => {
+      if (ok) toast("Share link copied — your notes & gut pick stay private.");
+      else window.prompt("Copy this share link:", url);
+    });
+  }
+
+  // Import a decision embedded in the URL hash, as a fresh copy. Returns true if one was found.
+  function importFromHash() {
+    const m = location.hash.match(/[#&]d=([^&]+)/);
+    if (!m) return false;
+    try {
+      const d = decodeDecision(m[1]);
+      d.title = d.title ? `${d.title} (shared)` : "Shared decision";
+      state.decisions.push(d);
+      state.activeId = d.id;
+      state.seeded = true; // don't also seed the example
+      save();
+      history.replaceState(null, "", location.pathname + location.search);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function exportCsv() {
     const d = active();
     if (!d || d.criteria.length === 0 || d.options.length === 0) {
@@ -739,6 +834,7 @@
   });
 
   el.duplicateBtn.addEventListener("click", duplicateDecision);
+  el.shareBtn.addEventListener("click", shareDecision);
 
   el.notes.addEventListener("input", () => {
     const d = active();
@@ -821,8 +917,10 @@
     } catch { /* ignore */ }
     applyTheme(theme);
 
-    seedExampleIfEmpty();
+    const imported = importFromHash();
+    if (!imported) seedExampleIfEmpty();
     if (!active() && state.decisions.length) state.activeId = state.decisions[0].id;
     render();
+    if (imported) toast("Imported a shared decision as a copy.");
   })();
 })();

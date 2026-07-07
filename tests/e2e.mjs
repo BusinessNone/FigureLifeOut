@@ -162,6 +162,35 @@ test("cleared decisions do not resurrect the seeded example on reload", async (t
   assert.equal((await page.$$("#decision-list li")).length, 0, "seeded example resurrected after reload");
 });
 
+test("share link round-trips a decision and keeps notes private", async (t) => {
+  const ctx = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const page = await ctx.newPage();
+  t.after(() => ctx.close());
+  await page.goto(base + "/");
+  await page.waitForSelector("#decision-editor:not([hidden])");
+
+  // Add a private note, then copy the share link.
+  await page.fill("#notes-input", "SECRET reflection");
+  await page.click("#share-decision");
+  await page.waitForSelector("#toast:not([hidden])");
+  const url = await page.evaluate(() => navigator.clipboard.readText());
+  assert.match(url, /#d=/, "share URL should contain encoded payload");
+  assert.ok(!url.includes("SECRET"), "notes must not be embedded in the link");
+
+  // A recipient opens the link as a fresh load; it imports the decision as a copy.
+  const recipientCtx = await browser.newContext();
+  const recipient = await recipientCtx.newPage();
+  t.after(() => recipientCtx.close());
+  await recipient.goto(url);
+  await recipient.waitForSelector("#decision-editor:not([hidden])");
+  await recipient.waitForFunction(() => /\(shared\)/.test(document.querySelector("#decision-title")?.value || ""));
+  assert.match(await recipient.inputValue("#decision-title"), /Should I take the new job\? \(shared\)/);
+  assert.equal(await recipient.textContent(".rb-winner"), "Take the offer");
+  assert.equal(await recipient.inputValue("#notes-input"), "", "imported copy should have no notes");
+  // Hash is stripped so a reload won't re-import.
+  assert.ok(!recipient.url().includes("#d="), "hash should be cleared after import");
+});
+
 test("PWA: manifest, service worker, and offline reload", async (t) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();

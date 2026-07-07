@@ -51,6 +51,9 @@ option on the same 0–10 scale, so comparisons stay honest.
 - 📝 Notes & reflections — capture the things a number can't
 - ↕️ Sort options by score, or keep entry order while you type
 - ⧉ Duplicate a decision to explore "what if" scenarios without touching the original
+- 🔗 **Shareable links** — copy a link that encodes your whole matrix so someone can open
+  it, see it, and tweak it. The data rides in the URL (no server stores it), and your
+  private notes and gut pick are deliberately left out of the link.
 - 🗂 Multiple saved decisions, kept in your browser's local storage
 - 🌗 Light / dark theme
 - 📤 Export / import as JSON (portable backups) or export the matrix as CSV
@@ -75,7 +78,7 @@ dev-only dependency used for testing. Open `index.html`, or serve the folder wit
 ## Testing
 
 End-to-end tests drive a real headless browser and cover scoring, the insight engine,
-sensitivity analysis, the gut check, persistence, and offline PWA behavior.
+sensitivity analysis, the gut check, shareable links, persistence, and offline PWA behavior.
 
 ```bash
 npm install          # dev dependency: Playwright
