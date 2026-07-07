@@ -49,6 +49,9 @@
     banner: $("#result-banner"),
     gutCheck: $("#gut-check"),
     gutSelect: $("#gut-select"),
+    insightWrap: $("#insight-wrap"),
+    chart: $("#results-chart"),
+    insights: $("#insights-list"),
     notes: $("#notes-input"),
     sortToggle: $("#sort-toggle"),
     csvBtn: $("#csv-btn"),
@@ -116,6 +119,97 @@
     return { rows, totalWeight };
   }
 
+  const scoreOf = (d, optId, critId) => {
+    const v = d.scores[optId]?.[critId];
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  /* Winning option id if a given criterion were dropped — powers "swing criterion" detection. */
+  function winnerWithout(d, excludeCritId) {
+    const crits = d.criteria.filter((c) => c.id !== excludeCritId);
+    const tw = crits.reduce((s, c) => s + c.weight, 0);
+    if (tw === 0 || d.options.length === 0) return null;
+    let best = null, bestScore = -1;
+    for (const o of d.options) {
+      let acc = 0;
+      for (const c of crits) acc += scoreOf(d, o.id, c.id) * c.weight;
+      if (acc > bestScore) { bestScore = acc; best = o.id; }
+    }
+    return best;
+  }
+
+  /* ---------- local insight engine (no network, pure heuristics) ---------- */
+  function analyze(d) {
+    const out = [];
+    const { rows, totalWeight } = computeResults(d);
+    if (rows.length === 0 || d.criteria.length === 0 || totalWeight === 0) return out;
+
+    const scored = rows.some((r) => r.total > 0);
+    if (!scored) return out;
+
+    const nameById = new Map(d.options.map((o) => [o.id, o.name]));
+    const leader = rows[0];
+    const runner = rows[1];
+
+    // 1) Decisiveness of the result
+    if (rows.length >= 2) {
+      const margin = leader.normalized - runner.normalized;
+      if (margin < 0.3) {
+        out.push({ tone: "warn", icon: "⚖️", html: `<strong>Photo finish.</strong> “${escapeHtml(leader.opt.name)}” and “${escapeHtml(runner.opt.name)}” are within ${margin.toFixed(1)} of each other — the math won't decide this one for you.` });
+      } else if (margin >= 1.8) {
+        out.push({ tone: "good", icon: "✅", html: `<strong>Clear leader.</strong> “${escapeHtml(leader.opt.name)}” is a decisive ${margin.toFixed(1)} points ahead — a robust result.` });
+      }
+    }
+
+    // 2) Swing criterion — the one thing the whole decision hinges on
+    if (rows.length >= 2 && d.criteria.length >= 2) {
+      let swing = null;
+      for (const c of d.criteria) {
+        if (winnerWithout(d, c.id) !== leader.opt.id) { swing = c; break; }
+      }
+      if (swing) {
+        out.push({ tone: "info", icon: "🎯", html: `<strong>This hinges on “${escapeHtml(swing.name)}.”</strong> Drop that one criterion and a different option wins. Make sure you scored it honestly.` });
+      }
+    }
+
+    // 3) Dominated option — beaten or matched on every criterion by another
+    for (const a of d.options) {
+      for (const b of d.options) {
+        if (a.id === b.id) continue;
+        const everyGE = d.criteria.every((c) => scoreOf(d, b.id, c.id) >= scoreOf(d, a.id, c.id));
+        const someGT = d.criteria.some((c) => scoreOf(d, b.id, c.id) > scoreOf(d, a.id, c.id));
+        if (everyGE && someGT) {
+          out.push({ tone: "info", icon: "🧹", html: `<strong>“${escapeHtml(a.name)}” is dominated.</strong> “${escapeHtml(b.name)}” matches or beats it on every criterion — you can probably take it off the table.` });
+          break;
+        }
+      }
+      if (out.filter((i) => i.icon === "🧹").length) break; // one is enough
+    }
+
+    // 4) Options barely differ — criteria aren't discriminating
+    if (rows.length >= 2) {
+      const spread = leader.normalized - rows[rows.length - 1].normalized;
+      if (spread < 0.6) {
+        out.push({ tone: "warn", icon: "🔍", html: `<strong>Your options score almost the same.</strong> Either they're genuinely equivalent, or you're missing a criterion that actually separates them.` });
+      }
+    }
+
+    // 5) Incomplete scoring
+    let blanks = 0, cells = 0;
+    for (const o of d.options) for (const c of d.criteria) { cells++; if (!Number.isFinite(d.scores[o.id]?.[c.id])) blanks++; }
+    if (blanks > 0 && blanks < cells) {
+      out.push({ tone: "warn", icon: "✏️", html: `<strong>${blanks} of ${cells} scores are blank.</strong> They're counting as 0 — fill them in for a fairer comparison.` });
+    }
+
+    // 6) Flat weighting nudge
+    if (d.criteria.length >= 3 && d.criteria.every((c) => c.weight === d.criteria[0].weight)) {
+      out.push({ tone: "info", icon: "🎚️", html: `<strong>Every criterion is weighted equally.</strong> If some matter more than others, adjust the weights to sharpen the result.` });
+    }
+
+    void nameById;
+    return out.slice(0, 5);
+  }
+
   /* ---------- rendering ---------- */
   function render() {
     renderSidebar();
@@ -134,6 +228,7 @@
     renderGutCheck(d);
     renderMatrix(d);
     renderBanner(d);
+    renderInsights(d);
   }
 
   function renderGutCheck(d) {
@@ -193,6 +288,7 @@
         save();
         renderMatrix(d);
         renderBanner(d);
+        renderInsights(d);
         renderSidebar();
       });
       li.querySelector(".remove").addEventListener("click", () => {
@@ -283,6 +379,7 @@
         save();
         updateTotals(d);
         renderBanner(d);
+        renderInsights(d);
         renderSidebar();
       });
     });
@@ -303,6 +400,37 @@
       tr.classList.toggle("leader", optId === leaderId);
       void th; // leader star handled by CSS
     });
+  }
+
+  function renderInsights(d) {
+    const { rows, totalWeight } = computeResults(d);
+    const scored = rows.some((r) => r.total > 0);
+    if (!scored || totalWeight === 0 || d.options.length === 0) {
+      el.insightWrap.hidden = true;
+      return;
+    }
+    el.insightWrap.hidden = false;
+
+    // Bar chart (sorted best-first) on a fixed 0–10 scale
+    const leaderId = rows[0].opt.id;
+    el.chart.innerHTML = rows.map((r) => {
+      const pct = Math.max(0, Math.min(100, (r.normalized / 10) * 100));
+      const isLeader = r.opt.id === leaderId && r.total > 0;
+      return `<div class="bar-row ${isLeader ? "leader" : ""}">
+        <div class="bar-label"><span class="bl-name" title="${escapeHtml(r.opt.name)}">${escapeHtml(r.opt.name)}</span><span class="bl-val">${r.normalized.toFixed(1)}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("");
+
+    // Insight cards
+    const insights = analyze(d);
+    if (insights.length === 0) {
+      el.insights.innerHTML = `<li class="insights-empty">Score a few more cells and insights will appear here.</li>`;
+    } else {
+      el.insights.innerHTML = insights.map((i) =>
+        `<li class="insight ${i.tone}"><span class="ins-icon">${i.icon}</span><span>${i.html}</span></li>`
+      ).join("");
+    }
   }
 
   function renderBanner(d) {

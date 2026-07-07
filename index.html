@@ -54,15 +54,33 @@
           <button id="delete-decision" class="icon-btn danger" title="Delete this decision" aria-label="Delete decision">🗑</button>
         </div>
 
-        <!-- Result banner -->
-        <div id="result-banner" class="result-banner" hidden></div>
-
         <!-- Gut check -->
         <div id="gut-check" class="gut-check" hidden>
           <span class="gut-label">🫀 Before the math — which way does your gut lean?</span>
           <select id="gut-select" aria-label="Your gut pick">
             <option value="">No pick yet</option>
           </select>
+        </div>
+
+        <!-- Result banner -->
+        <div id="result-banner" class="result-banner" hidden></div>
+
+        <!-- Results chart + insight engine -->
+        <div id="insight-wrap" class="insight-wrap" hidden>
+          <div class="panel chart-panel">
+            <div class="panel-head">
+              <h3>Where they stand</h3>
+              <span class="hint">weighted, 0–10</span>
+            </div>
+            <div id="results-chart" class="results-chart"></div>
+          </div>
+          <div class="panel insights-panel">
+            <div class="panel-head">
+              <h3>What stands out</h3>
+              <span class="hint">analyzed on your device</span>
+            </div>
+            <ul id="insights-list" class="insights-list"></ul>
+          </div>
         </div>
 
         <div class="panels">

@@ -32,6 +32,11 @@ option on the same 0–10 scale, so comparisons stay honest.
 ## Features
 
 - ⚖️ Weighted criteria with live-updating results
+- 📊 Results chart — a weighted bar ranking so the standing reads at a glance
+- 🧠 **Insight engine** — reasons about your matrix *on your device*: how decisive the
+  result is, the single criterion the whole decision **hinges** on, options that are
+  **dominated** (beaten on every criterion), whether your criteria actually separate the
+  options, and gaps in your scoring. No LLM, no network — just heuristics running locally.
 - 🔥 Heatmap scoring grid — strengths and weaknesses jump out at a glance
 - 🫀 **Gut check** — record which way your intuition leans *before* the math, then see
   whether the numbers agree. When they don't, that gap is the most useful thing on screen.

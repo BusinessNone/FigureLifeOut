@@ -175,6 +175,37 @@ body {
 .result-banner .rb-gut.agree { color: var(--success); }
 .result-banner .rb-gut.disagree { color: var(--danger); }
 
+/* ---------- Results chart + insights ---------- */
+.insight-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+
+.results-chart { display: flex; flex-direction: column; gap: 12px; }
+.bar-row { display: flex; flex-direction: column; gap: 4px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 13px; gap: 8px; }
+.bar-label .bl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.bar-label .bl-val { font-variant-numeric: tabular-nums; color: var(--text-soft); font-weight: 700; flex-shrink: 0; }
+.bar-track { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 55%, transparent), var(--primary));
+  transition: width .35s cubic-bezier(.22,.61,.36,1);
+}
+.bar-row.leader .bar-fill { background: linear-gradient(90deg, color-mix(in srgb, var(--success) 55%, transparent), var(--success)); }
+.bar-row.leader .bl-name::before { content: "★ "; color: var(--success); }
+.bar-row.leader .bl-val { color: var(--success); }
+
+.insights-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.insight {
+  display: flex; gap: 10px; font-size: 13.5px; line-height: 1.5;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border-left: 3px solid var(--text-faint);
+}
+.insight .ins-icon { flex-shrink: 0; font-size: 16px; line-height: 1.35; }
+.insight.good { border-left-color: var(--success); }
+.insight.warn { border-left-color: var(--danger); }
+.insight.info { border-left-color: var(--primary); }
+.insight strong { font-weight: 700; }
+.insights-empty { color: var(--text-faint); font-size: 13px; padding: 6px 0; }
+
 /* ---------- Matrix tools ---------- */
 .matrix-tools { display: flex; align-items: center; gap: 8px; }
 .matrix-tools .btn-ghost { flex: none; padding: 5px 10px; }
@@ -321,4 +352,5 @@ body {
   .decision-list li { flex-shrink: 0; }
   .sidebar-foot { order: 1; border-top: none; padding-top: 0; }
   .panels { grid-template-columns: 1fr; }
+  .insight-wrap { grid-template-columns: 1fr; }
 }
