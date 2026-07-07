@@ -29,6 +29,7 @@
     x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
     keyboard: `<path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/>`,
     clock: `<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>`,
+    "octagon-alert": `<path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/>`,
   };
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -181,7 +182,7 @@
       .map((c) => {
         const id = uid();
         if (typeof c.id === "string") critMap.set(c.id, id);
-        return { id, name: cleanStr(c.name, 40), weight: clampWeight(c.weight) };
+        return { id, name: cleanStr(c.name, 40), weight: clampWeight(c.weight), dealbreaker: Boolean(c.dealbreaker) };
       });
     const optMap = new Map();
     d.options = d.options
@@ -241,58 +242,79 @@
   }
 
   /* Weighted result: for each option, sum(score * weight) / sum(weight) → 0..10 scale */
-  function computeResults(d) {
-    const totalWeight = d.criteria.reduce((s, c) => s + c.weight, 0);
-    const rows = d.options.map((opt) => {
-      let acc = 0;
-      for (const c of d.criteria) {
-        const raw = d.scores[opt.id]?.[c.id];
-        const score = Number.isFinite(raw) ? raw : 0;
-        acc += score * c.weight;
-      }
-      const normalized = totalWeight > 0 ? acc / totalWeight : 0;
-      return { opt, total: acc, normalized };
-    });
-    rows.sort((a, b) => b.total - a.total);
-    return { rows, totalWeight };
-  }
+  // A dealbreaker criterion disqualifies an option outright if its score is
+  // at or below this bar — the fix for the classic weighted-sum complaint
+  // that a catastrophic score on the thing you care about most gets quietly
+  // averaged away by strong scores elsewhere.
+  const DEALBREAKER_THRESHOLD = 2;
 
   const scoreOf = (d, optId, critId) => {
     const v = d.scores[optId]?.[critId];
     return Number.isFinite(v) ? v : 0;
   };
 
+  // A blank cell must never count as "failed the dealbreaker" — that would
+  // disqualify every option the instant you mark a criterion, before you've
+  // scored anything. Only an explicitly entered low score counts.
+  const failsDealbreaker = (d, optId, critId) => {
+    const v = d.scores[optId]?.[critId];
+    return Number.isFinite(v) && v <= DEALBREAKER_THRESHOLD;
+  };
+
+  function computeResults(d) {
+    const totalWeight = d.criteria.reduce((s, c) => s + c.weight, 0);
+    const dealbreakers = d.criteria.filter((c) => c.dealbreaker);
+    const rows = d.options.map((opt) => {
+      let acc = 0;
+      for (const c of d.criteria) acc += scoreOf(d, opt.id, c.id) * c.weight;
+      const normalized = totalWeight > 0 ? acc / totalWeight : 0;
+      const failedBy = dealbreakers.filter((c) => failsDealbreaker(d, opt.id, c.id));
+      return { opt, total: acc, normalized, disqualified: failedBy.length > 0, failedBy };
+    });
+    // Qualifying options always sort ahead of disqualified ones, so rows[0]
+    // is the best real contender whenever one exists — every call site that
+    // treats rows[0] as "the winner" gets dealbreaker-awareness for free.
+    rows.sort((a, b) => (a.disqualified !== b.disqualified ? (a.disqualified ? 1 : -1) : b.total - a.total));
+    const allDisqualified = rows.length > 0 && rows.every((r) => r.disqualified);
+    return { rows, totalWeight, allDisqualified };
+  }
+
+  // Best option for an explicit {id, weight, dealbreaker} criteria list —
+  // shared by winnerWithout/winnerWith so hypothetical-weight scenarios stay
+  // dealbreaker-aware too (a criterion excluded from the scenario doesn't
+  // disqualify anyone via it).
+  function bestOptionFor(d, crits) {
+    let best = null, bestScore = -1, bestQualifies = false;
+    for (const o of d.options) {
+      let acc = 0;
+      for (const c of crits) acc += scoreOf(d, o.id, c.id) * c.weight;
+      const qualifies = !crits.some((c) => c.dealbreaker && failsDealbreaker(d, o.id, c.id));
+      if (best === null || (qualifies && !bestQualifies) || (qualifies === bestQualifies && acc > bestScore)) {
+        best = o.id; bestScore = acc; bestQualifies = qualifies;
+      }
+    }
+    return best;
+  }
+
   /* Winning option id if a given criterion were dropped — powers "swing criterion" detection. */
   function winnerWithout(d, excludeCritId) {
     const crits = d.criteria.filter((c) => c.id !== excludeCritId);
     const tw = crits.reduce((s, c) => s + c.weight, 0);
     if (tw === 0 || d.options.length === 0) return null;
-    let best = null, bestScore = -1;
-    for (const o of d.options) {
-      let acc = 0;
-      for (const c of crits) acc += scoreOf(d, o.id, c.id) * c.weight;
-      if (acc > bestScore) { bestScore = acc; best = o.id; }
-    }
-    return best;
+    return bestOptionFor(d, crits);
   }
 
   /* Winner id if one criterion's weight were changed to newWeight. */
   function winnerWith(d, critId, newWeight) {
-    let best = null, bestScore = -1;
-    for (const o of d.options) {
-      let acc = 0;
-      for (const c of d.criteria) {
-        const w = c.id === critId ? newWeight : c.weight;
-        acc += scoreOf(d, o.id, c.id) * w;
-      }
-      if (acc > bestScore) { bestScore = acc; best = o.id; }
-    }
-    return best;
+    if (d.options.length === 0) return null;
+    const crits = d.criteria.map((c) => (c.id === critId ? { ...c, weight: newWeight } : c));
+    return bestOptionFor(d, crits);
   }
 
   /* Sensitivity: the smallest single weight change that flips the winner, if any. */
   function sensitivity(d) {
-    const { rows, totalWeight } = computeResults(d);
+    const { rows, totalWeight, allDisqualified } = computeResults(d);
+    if (allDisqualified) return { disqualifiedAll: true };
     if (rows.length < 2 || totalWeight === 0 || rows[0].total <= 0) return null;
     const winner = rows[0].opt.id;
     let best = null; // { crit, from, to, newWinner, delta }
@@ -319,18 +341,31 @@
   /* ---------- local insight engine (no network, pure heuristics) ---------- */
   function analyze(d) {
     const out = [];
-    const { rows, totalWeight } = computeResults(d);
+    const { rows, totalWeight, allDisqualified } = computeResults(d);
     if (rows.length === 0 || d.criteria.length === 0 || totalWeight === 0) return out;
 
-    const scored = rows.some((r) => r.total > 0);
+    const scored = rows.some((r) => r.total > 0 || r.disqualified);
     if (!scored) return out;
 
     const nameById = new Map(d.options.map((o) => [o.id, o.name]));
     const leader = rows[0];
-    const runner = rows[1];
+    // The first non-disqualified runner-up, if any — comparing a qualifying
+    // leader's margin against a disqualified option wouldn't mean anything.
+    const runner = rows.find((r) => r !== leader && !r.disqualified);
 
-    // 1) Decisiveness of the result
-    if (rows.length >= 2) {
+    // 0) Dealbreaker disqualifications — surfaced first, since they override
+    // everything else a weighted average would otherwise say.
+    const disqualifiedRows = rows.filter((r) => r.disqualified);
+    if (allDisqualified) {
+      out.push({ tone: "warn", icon: "octagon-alert", html: `<strong>No option clears your dealbreakers.</strong> Every option fails at least one requirement you marked as a dealbreaker — the ranking below shows the least-bad option, not a real winner.` });
+    }
+    for (const r of disqualifiedRows.slice(0, 2)) {
+      const names = r.failedBy.map((c) => escapeHtml(c.name)).join(", ");
+      out.push({ tone: "warn", icon: "octagon-alert", html: `<strong>“${escapeHtml(r.opt.name)}” is disqualified.</strong> It scored ${DEALBREAKER_THRESHOLD} or below on ${names} — a dealbreaker requirement — no matter how well it does elsewhere.` });
+    }
+
+    // 1) Decisiveness of the result (only meaningful when a real leader exists)
+    if (!allDisqualified && runner) {
       const margin = leader.normalized - runner.normalized;
       if (margin < 0.3) {
         out.push({ tone: "warn", icon: "scale", html: `<strong>Photo finish.</strong> “${escapeHtml(leader.opt.name)}” and “${escapeHtml(runner.opt.name)}” are within ${margin.toFixed(1)} of each other — the math won't decide this one for you.` });
@@ -340,7 +375,7 @@
     }
 
     // 2) Swing criterion — the one thing the whole decision hinges on
-    if (rows.length >= 2 && d.criteria.length >= 2) {
+    if (!allDisqualified && runner && d.criteria.length >= 2) {
       let swing = null;
       for (const c of d.criteria) {
         if (winnerWithout(d, c.id) !== leader.opt.id) { swing = c; break; }
@@ -385,7 +420,7 @@
     }
 
     void nameById;
-    return out.slice(0, 5);
+    return out.slice(0, 6);
   }
 
   /* ---------- rendering ---------- */
@@ -435,7 +470,7 @@
       li.className = d.id === state.activeId ? "active" : "";
       const { rows } = computeResults(d);
       const leader = rows[0];
-      const leadLabel = leader && leader.total > 0 ? leader.opt.name : "";
+      const leadLabel = leader && leader.total > 0 && !leader.disqualified ? leader.opt.name : "";
       const time = relTime(d.updatedAt);
       li.innerHTML = `<span class="li-main"><span class="li-title">${escapeHtml(d.title || "Untitled decision")}</span>` +
         (time ? `<span class="li-time">${time}</span>` : "") +
@@ -532,10 +567,14 @@
     el.criteria.innerHTML = "";
     for (const c of d.criteria) {
       const li = document.createElement("li");
-      li.className = "chip";
+      li.className = `chip${c.dealbreaker ? " dealbreaker" : ""}`;
       li.innerHTML = `
         <button class="chip-handle" aria-label="Reorder ${escapeHtml(c.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+        <button class="dealbreaker-toggle" aria-pressed="${c.dealbreaker ? "true" : "false"}"
+          title="${c.dealbreaker ? "Dealbreaker — options scoring 2 or below here are disqualified. Click to unmark." : "Mark as a dealbreaker: options scoring 2 or below here get disqualified, however well they score elsewhere."}">
+          ${icon("octagon-alert")}<span class="db-label">Dealbreaker</span>
+        </button>
         <span class="weight-control">
           <input type="range" min="1" max="10" value="${c.weight}" aria-label="Weight for ${escapeHtml(c.name)}" />
           <span class="weight-val">${c.weight}</span>
@@ -552,6 +591,12 @@
         renderBanner(d);
         renderInsights(d);
         renderSidebar();
+      });
+      li.querySelector(".dealbreaker-toggle").addEventListener("click", () => {
+        c.dealbreaker = !c.dealbreaker;
+        save();
+        render();
+        announce(c.dealbreaker ? `${c.name} marked as a dealbreaker.` : `${c.name} is no longer a dealbreaker.`);
       });
       li.querySelector(".remove").addEventListener("click", () => {
         const idx = d.criteria.findIndex((x) => x.id === c.id);
@@ -622,13 +667,15 @@
     }
 
     const { rows } = computeResults(d);
-    const leaderId = rows.length && rows[0].total > 0 ? rows[0].opt.id : null;
+    const leaderId = rows.length && rows[0].total > 0 && !rows[0].disqualified ? rows[0].opt.id : null;
     const normById = new Map(rows.map((r) => [r.opt.id, r.normalized]));
+    const disqById = new Map(rows.map((r) => [r.opt.id, r]));
 
     // Header
     let html = "<thead><tr><th></th>";
     for (const c of d.criteria) {
-      html += `<th class="crit-head">${escapeHtml(c.name)}<span class="cw">×${c.weight}</span></th>`;
+      const dbMark = c.dealbreaker ? `<span class="th-db" title="Dealbreaker">${icon("octagon-alert")}</span>` : "";
+      html += `<th class="crit-head${c.dealbreaker ? " dealbreaker" : ""}">${dbMark}${escapeHtml(c.name)}<span class="cw">×${c.weight}</span></th>`;
     }
     html += `<th class="total-head">Score</th></tr></thead><tbody>`;
 
@@ -639,13 +686,18 @@
 
     ordered.forEach((o, ri) => {
       const isLeader = o.id === leaderId;
+      const row = disqById.get(o.id);
       const star = isLeader ? `<span class="lead-star">${icon("award")}</span>` : "";
-      html += `<tr class="${isLeader ? "leader" : ""}"><th>${star}${escapeHtml(o.name)}</th>`;
+      const dbBadge = row?.disqualified
+        ? `<span class="row-db-badge" title="Disqualified — scored ${DEALBREAKER_THRESHOLD} or below on ${row.failedBy.map((c) => escapeHtml(c.name)).join(", ")}">${icon("octagon-alert")} Disqualified</span>`
+        : "";
+      html += `<tr class="${isLeader ? "leader" : ""}${row?.disqualified ? " disqualified" : ""}"><th>${star}${escapeHtml(o.name)}${dbBadge}</th>`;
       d.criteria.forEach((c, ci) => {
         const v = d.scores[o.id]?.[c.id];
         const val = Number.isFinite(v) ? v : "";
+        const failed = c.dealbreaker && failsDealbreaker(d, o.id, c.id);
         const bg = Number.isFinite(v) ? ` style="background:${heatColor(v)}"` : "";
-        html += `<td class="score-cell"><input type="number" min="0" max="10" step="1"
+        html += `<td class="score-cell${failed ? " db-failed" : ""}"><input type="number" min="0" max="10" step="1"
           data-opt="${o.id}" data-crit="${c.id}" data-r="${ri}" data-c="${ci}"
           aria-label="${escapeHtml(o.name)} — ${escapeHtml(c.name)}" value="${val}" placeholder="0"${bg} /></td>`;
       });
@@ -698,17 +750,36 @@
   /* Update just the totals column + leader highlight without rebuilding inputs (keeps focus). */
   function updateTotals(d) {
     const { rows } = computeResults(d);
-    const leaderId = rows.length && rows[0].total > 0 ? rows[0].opt.id : null;
-    const normById = new Map(rows.map((r) => [r.opt.id, r.normalized]));
+    const leaderId = rows.length && rows[0].total > 0 && !rows[0].disqualified ? rows[0].opt.id : null;
+    const byId = new Map(rows.map((r) => [r.opt.id, r]));
+    const critById = new Map(d.criteria.map((c) => [c.id, c]));
     el.matrix.querySelectorAll("tbody tr").forEach((tr) => {
       const th = tr.querySelector("th");
       const totalCell = tr.querySelector(".total-cell");
       const firstInput = tr.querySelector("input[data-opt]");
       if (!firstInput) return;
       const optId = firstInput.dataset.opt;
-      totalCell.textContent = (normById.get(optId) || 0).toFixed(1);
-      tr.classList.toggle("leader", optId === leaderId);
-      void th; // leader star handled by CSS
+      const row = byId.get(optId);
+      if (!row) return;
+      totalCell.textContent = row.normalized.toFixed(1);
+      const isLeader = optId === leaderId;
+      tr.classList.toggle("leader", isLeader);
+      tr.classList.toggle("disqualified", row.disqualified);
+      // Rebuild the row header (star/name/badge) so it never goes stale
+      // while typing — text color alone (via the .leader/.disqualified
+      // classes) isn't enough feedback for a dealbreaker toggling live.
+      const star = isLeader ? `<span class="lead-star">${icon("award")}</span>` : "";
+      const dbBadge = row.disqualified
+        ? `<span class="row-db-badge" title="Disqualified — scored ${DEALBREAKER_THRESHOLD} or below on ${row.failedBy.map((c) => escapeHtml(c.name)).join(", ")}">${icon("octagon-alert")} Disqualified</span>`
+        : "";
+      th.innerHTML = `${star}${escapeHtml(row.opt.name)}${dbBadge}`;
+      // Mark/unmark individual cells that just crossed the dealbreaker bar.
+      tr.querySelectorAll(".score-cell").forEach((td) => {
+        const input = td.querySelector("input");
+        const crit = critById.get(input?.dataset.crit);
+        const failed = Boolean(crit?.dealbreaker) && failsDealbreaker(d, optId, crit.id);
+        td.classList.toggle("db-failed", failed);
+      });
     });
   }
 
@@ -758,27 +829,30 @@
 
   function renderInsights(d) {
     const { rows, totalWeight } = computeResults(d);
-    const scored = rows.some((r) => r.total > 0);
+    const scored = rows.some((r) => r.total > 0 || r.disqualified);
     if (!scored || totalWeight === 0 || d.options.length === 0) {
       el.insightWrap.hidden = true;
       return;
     }
     el.insightWrap.hidden = false;
 
-    // Bar chart (sorted best-first) on a fixed 0–10 scale
-    const leaderId = rows[0].opt.id;
+    // Bar chart (sorted best-first, disqualified options last) on a fixed 0–10 scale
+    const leaderId = !rows[0].disqualified ? rows[0].opt.id : null;
     el.chart.innerHTML = rows.map((r) => {
       const pct = Math.max(0, Math.min(100, (r.normalized / 10) * 100));
       const isLeader = r.opt.id === leaderId && r.total > 0;
-      return `<div class="bar-row ${isLeader ? "leader" : ""}">
+      const dqBadge = r.disqualified ? `<span class="bar-dq-badge" title="Scored ${DEALBREAKER_THRESHOLD} or below on ${r.failedBy.map((c) => escapeHtml(c.name)).join(", ")}">${icon("octagon-alert")} Disqualified</span>` : "";
+      return `<div class="bar-row ${isLeader ? "leader" : ""}${r.disqualified ? " disqualified" : ""}">
         <div class="bar-label"><span class="bl-name" title="${escapeHtml(r.opt.name)}">${isLeader ? icon("award") : ""}${escapeHtml(r.opt.name)}</span><span class="bl-val">${r.normalized.toFixed(1)}</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        ${dqBadge}
       </div>`;
     }).join("");
 
-    // Robustness / sensitivity readout
+    // Robustness / sensitivity readout — skipped when nothing qualifies;
+    // the "no option clears your dealbreakers" insight card covers that case.
     const sens = sensitivity(d);
-    if (!sens) {
+    if (!sens || sens.disqualifiedAll) {
       el.robustness.hidden = true;
     } else if (sens.robust) {
       el.robustness.hidden = false;
@@ -807,27 +881,52 @@
   const lastAnnouncedWinner = {};
 
   function renderBanner(d) {
-    const { rows, totalWeight } = computeResults(d);
-    const scored = rows.some((r) => r.total > 0);
+    const { rows, totalWeight, allDisqualified } = computeResults(d);
+    const scored = rows.some((r) => r.total > 0 || r.disqualified);
     if (!scored || d.options.length === 0 || totalWeight === 0) {
       el.banner.hidden = true;
       delete lastAnnouncedWinner[d.id];
       return;
     }
     const winner = rows[0];
+
+    // Every option fails at least one dealbreaker — there is no real winner
+    // to announce, so say that plainly instead of "leaning toward" a
+    // disqualified option.
+    if (allDisqualified) {
+      delete lastAnnouncedWinner[d.id];
+      el.banner.className = "result-banner disqualified";
+      el.banner.innerHTML = `
+        <span class="rb-emoji">${icon("octagon-alert")}</span>
+        <div class="rb-text">
+          <h3>No option clears your dealbreakers</h3>
+          <div class="rb-winner">Every option fails at least one requirement</div>
+          <div class="rb-sub">Loosen a dealbreaker, rescore, or accept the least-bad option below.</div>
+        </div>`;
+      el.banner.hidden = false;
+      return;
+    }
+    el.banner.className = "result-banner";
+
     if (lastAnnouncedWinner[d.id] && lastAnnouncedWinner[d.id] !== winner.opt.id) {
       announce(`${winner.opt.name} is now leading.`);
     }
     lastAnnouncedWinner[d.id] = winner.opt.id;
-    const runnerUp = rows[1];
+    // Compare against the best QUALIFYING runner-up — a margin over a
+    // disqualified option wouldn't mean anything.
+    const runnerUp = rows.find((r) => r !== winner && !r.disqualified);
     const margin = runnerUp ? winner.normalized - runnerUp.normalized : null;
     let sub;
-    if (rows.length === 1) {
+    if (!runnerUp) {
       sub = `Scored ${winner.normalized.toFixed(1)} / 10 on what matters to you.`;
     } else if (margin !== null && margin < 0.3) {
       sub = `It's close — just ${margin.toFixed(1)} ahead of “${escapeHtml(runnerUp.opt.name)}”. Trust your gut on the tie-breaker.`;
     } else {
       sub = `Ahead of “${escapeHtml(runnerUp.opt.name)}” by ${margin.toFixed(1)} points on a 10-point scale.`;
+    }
+    const dqCount = rows.filter((r) => r.disqualified).length;
+    if (dqCount > 0) {
+      sub += ` (${dqCount} other option${dqCount === 1 ? "" : "s"} disqualified by a dealbreaker.)`;
     }
     // Compare the numbers against the user's recorded gut pick, if any.
     let gutLine = "";
@@ -909,7 +1008,7 @@
     const t = TEMPLATES.find((x) => x.id === tplId) || TEMPLATES[0];
     const d = makeDecision();
     d.title = t.title || "";
-    d.criteria = t.criteria.map(([name, weight]) => ({ id: uid(), name, weight }));
+    d.criteria = t.criteria.map(([name, weight]) => ({ id: uid(), name, weight, dealbreaker: false }));
     state.decisions.push(d);
     state.activeId = d.id;
     save();
@@ -929,7 +1028,7 @@
     d.title = "Should I take the new job?";
     const crit = [
       ["Salary", 8], ["Work-life balance", 9], ["Growth", 7], ["Commute", 5],
-    ].map(([name, weight]) => ({ id: uid(), name, weight }));
+    ].map(([name, weight]) => ({ id: uid(), name, weight, dealbreaker: false }));
     const opts = [
       { id: uid(), name: "Take the offer" },
       { id: uid(), name: "Stay put" },
@@ -980,7 +1079,7 @@
   function encodeDecision(d) {
     const payload = {
       t: d.title,
-      c: d.criteria.map((c) => [c.name, c.weight]),
+      c: d.criteria.map((c) => [c.name, c.weight, c.dealbreaker ? 1 : 0]),
       o: d.options.map((o) => o.name),
       s: d.options.map((o) => d.criteria.map((c) => {
         const v = d.scores[o.id]?.[c.id];
@@ -994,8 +1093,8 @@
     const p = JSON.parse(b64urlDecode(str));
     const d = makeDecision();
     d.title = typeof p.t === "string" ? p.t : "";
-    d.criteria = (Array.isArray(p.c) ? p.c : []).map(([name, weight]) => ({
-      id: uid(), name: String(name).slice(0, 40), weight: clampWeight(weight),
+    d.criteria = (Array.isArray(p.c) ? p.c : []).map(([name, weight, dealbreaker]) => ({
+      id: uid(), name: String(name).slice(0, 40), weight: clampWeight(weight), dealbreaker: dealbreaker === 1,
     }));
     d.options = (Array.isArray(p.o) ? p.o : []).map((name) => ({ id: uid(), name: String(name).slice(0, 40) }));
     d.scores = {};
@@ -1072,14 +1171,17 @@
       if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
       return `"${v.replace(/"/g, '""')}"`;
     };
-    const header = ["Option", ...d.criteria.map((c) => `${c.name} (x${c.weight})`), "Weighted score"];
+    const byId = new Map(rows.map((r) => [r.opt.id, r]));
+    const header = ["Option", ...d.criteria.map((c) => `${c.name}${c.dealbreaker ? " [dealbreaker]" : ""} (x${c.weight})`), "Weighted score", "Disqualified"];
     const lines = [header.map(esc).join(",")];
     for (const o of d.options) {
       const cells = d.criteria.map((c) => {
         const v = d.scores[o.id]?.[c.id];
         return Number.isFinite(v) ? v : 0;
       });
-      lines.push([esc(o.name), ...cells, (normById.get(o.id) || 0).toFixed(2)].join(","));
+      const row = byId.get(o.id);
+      const dqReason = row?.disqualified ? row.failedBy.map((c) => c.name).join("; ") : "";
+      lines.push([esc(o.name), ...cells, (normById.get(o.id) || 0).toFixed(2), esc(dqReason)].join(","));
     }
     downloadBlob(lines.join("\n"), "text/csv", `${slug(d.title || "decision")}.csv`);
     toast("Exported CSV.");
@@ -1308,7 +1410,7 @@
     if (!d) return;
     const name = el.critInput.value.trim();
     if (!name) return;
-    d.criteria.push({ id: uid(), name, weight: 5 });
+    d.criteria.push({ id: uid(), name, weight: 5, dealbreaker: false });
     el.critInput.value = "";
     save();
     render();

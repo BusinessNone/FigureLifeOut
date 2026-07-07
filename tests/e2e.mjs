@@ -106,6 +106,84 @@ test("scoring computes a weighted result and reweighting flips the winner", asyn
   await page.waitForFunction(() => /Denver is now leading/.test(document.querySelector("#live")?.textContent || ""));
 });
 
+test("dealbreaker: a low score disqualifies an option even if it would otherwise win", async (t) => {
+  const page = await freshPage(t);
+  // Seeded example: "Take the offer" normally leads. Mark Salary (its
+  // strongest criterion) as a dealbreaker and fail it explicitly.
+  await page.click("#criteria-list .chip .dealbreaker-toggle");
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+  await page.fill('input[data-r="0"][data-c="0"]', "1"); // Take the offer x Salary
+  await page.waitForFunction(() => document.querySelector(".rb-winner")?.textContent === "Stay put");
+
+  assert.equal(await page.textContent(".rb-winner"), "Stay put");
+  assert.match(await page.textContent("#result-banner"), /disqualified by a dealbreaker/);
+  const insightText = (await page.$$eval(".insight", (els) => els.map((e) => e.textContent))).join(" ");
+  assert.match(insightText, /“Take the offer” is disqualified/);
+  // The matrix marks the row and the failing cell.
+  assert.ok(await page.$(".matrix tbody tr.disqualified"), "disqualified row should be marked");
+  assert.ok(await page.$(".score-cell.db-failed"), "the failing cell should be flagged");
+  assert.match(await page.textContent(".matrix"), /Disqualified/);
+  // The results chart also reflects it.
+  assert.ok(await page.$(".bar-row.disqualified"), "chart bar should show disqualified state");
+});
+
+test("dealbreaker: a blank (unscored) cell never disqualifies", async (t) => {
+  const page = await freshPage(t);
+  // Add a brand-new criterion (starts blank for every option) and mark it
+  // as a dealbreaker immediately, before scoring it. This must not
+  // instantly disqualify everyone — only an explicit low score should.
+  await addCriterion(page, "Culture fit");
+  const toggles = await page.$$("#criteria-list .chip .dealbreaker-toggle");
+  await toggles[toggles.length - 1].click(); // the new criterion's toggle
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+  await page.waitForTimeout(150); // settle any re-render
+  assert.equal(await page.textContent(".rb-winner"), "Take the offer");
+  assert.ok(!(await page.$(".matrix tbody tr.disqualified")), "no row should be disqualified from a blank cell");
+});
+
+test("dealbreaker: when every option is disqualified, the banner says so plainly", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#criteria-list .chip .dealbreaker-toggle"); // Salary
+  await page.fill('input[data-r="0"][data-c="0"]', "1"); // Take the offer x Salary
+  await page.fill('input[data-r="1"][data-c="0"]', "0"); // Stay put x Salary
+  await page.waitForFunction(() => /No option clears your dealbreakers/.test(document.querySelector("#result-banner")?.textContent || ""));
+  assert.match(await page.getAttribute("#result-banner", "class"), /disqualified/);
+  // No "Leaning toward X" claim naming an option, and the robustness meter
+  // (which would be meaningless here) stays hidden rather than showing a
+  // broken/garbage message.
+  const bannerText = await page.textContent(".rb-winner");
+  assert.ok(!/Take the offer|Stay put/.test(bannerText), `must not name a disqualified option as the winner, got: ${bannerText}`);
+  assert.ok(await page.$("#robustness[hidden]"), "robustness meter should hide, not show garbage");
+});
+
+test("dealbreaker flag round-trips through JSON export/import and share links", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#criteria-list .chip .dealbreaker-toggle");
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+
+  // Share link preserves it.
+  const ctx2 = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const page2 = await ctx2.newPage();
+  t.after(() => ctx2.close());
+  await page2.goto(base + "/");
+  await page2.waitForSelector("#decision-editor:not([hidden])");
+  await page2.click("#criteria-list .chip .dealbreaker-toggle");
+  await page2.click("#share-decision");
+  await page2.waitForSelector("#toast:not([hidden])");
+  const url = await page2.evaluate(() => navigator.clipboard.readText());
+  const recipientCtx = await browser.newContext();
+  const recipient = await recipientCtx.newPage();
+  t.after(() => recipientCtx.close());
+  await recipient.goto(url);
+  await recipient.waitForSelector("#decision-editor:not([hidden])");
+  await recipient.waitForFunction(() => /\(shared\)/.test(document.querySelector("#decision-title")?.value || ""));
+  assert.ok(await recipient.$("#criteria-list .chip.dealbreaker"), "dealbreaker flag should survive a share link");
+
+  // Reload (localStorage round-trip) preserves it too.
+  await page.reload();
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+});
+
 test("insight engine flags a dominated option and a clear leader", async (t) => {
   const page = await freshPage(t);
   await page.click("#new-decision");

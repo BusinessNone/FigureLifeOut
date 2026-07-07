@@ -246,6 +246,9 @@ body {
 .result-banner .rb-gut .icon { width: 14px; height: 14px; }
 .result-banner .rb-gut.agree { color: var(--c360-success); }
 .result-banner .rb-gut.disagree { color: var(--c360-danger); }
+.result-banner.disqualified { border-left-color: var(--c360-danger); }
+.result-banner.disqualified .rb-emoji { color: var(--c360-danger); }
+.result-banner.disqualified .rb-text .rb-winner { font-size: 1.25rem; line-height: 1.75rem; color: var(--c360-danger); }
 
 /* ---------- Gut check ---------- */
 .gut-check {
@@ -276,6 +279,15 @@ body {
 .bar-row.leader .bar-fill { background: var(--c360-accent); }
 .bar-row.leader .bl-name { font-weight: 600; }
 .bar-row.leader .bl-val { color: var(--c360-accent); }
+.bar-row.disqualified .bar-fill { background: var(--c360-border-strong); opacity: .5; }
+.bar-row.disqualified .bl-name { color: var(--c360-text-disabled); text-decoration: line-through; }
+.bar-dq-badge {
+  display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+  font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--c360-danger); background: var(--c360-danger-subtle);
+  border-radius: var(--c360-radius-sm); padding: 2px 6px;
+}
+.bar-dq-badge .icon { width: 12px; height: 12px; }
 
 .insights-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .insight {
@@ -373,7 +385,19 @@ kbd {
 .chip.dragging { opacity: .5; }
 .chip.drop-before { box-shadow: inset 0 2px 0 0 var(--c360-accent); }
 .chip.drop-after { box-shadow: inset 0 -2px 0 0 var(--c360-accent); }
+.chip.dealbreaker { background: var(--c360-danger-subtle); box-shadow: inset 3px 0 0 0 var(--c360-danger); }
 .chip .chip-name { flex: 1; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .dealbreaker-toggle {
+  background: none; border: none; cursor: pointer; color: var(--c360-text-disabled);
+  padding: 5px; display: inline-flex; border-radius: var(--c360-radius-sm); flex-shrink: 0;
+  min-width: 28px; min-height: 28px; align-items: center; justify-content: center;
+}
+.chip .dealbreaker-toggle .db-label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.chip .dealbreaker-toggle .icon { width: 16px; height: 16px; }
+.chip .dealbreaker-toggle:hover { color: var(--c360-text-secondary); background: var(--c360-bg-surface); }
+.chip .dealbreaker-toggle[aria-pressed="true"] { color: var(--c360-danger); background: var(--c360-bg-surface); }
 .chip .weight-control { display: flex; align-items: center; gap: 8px; }
 .chip input[type="range"] { width: 88px; accent-color: var(--c360-accent); cursor: pointer; }
 .chip .weight-val {
@@ -411,6 +435,9 @@ kbd {
 }
 .matrix thead th.crit-head { min-width: 96px; }
 .matrix thead th.crit-head .cw { display: block; font-family: var(--c360-font-mono); font-size: 0.6875rem; color: var(--c360-text-disabled); font-weight: 400; }
+.matrix thead th.crit-head.dealbreaker { color: var(--c360-danger); }
+.matrix thead th.crit-head .th-db { color: var(--c360-danger); display: inline-flex; vertical-align: middle; margin-right: 3px; }
+.matrix thead th.crit-head .th-db .icon { width: 13px; height: 13px; }
 .matrix tbody th {
   text-align: left; font-size: 0.875rem; font-weight: 600;
   position: sticky; left: 0; background: var(--c360-bg-surface); white-space: nowrap;
@@ -428,8 +455,18 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 .matrix .score-cell input:focus { outline: none; border-color: var(--c360-accent); }
+.matrix .score-cell.db-failed input { border-color: var(--c360-danger); border-width: 2px; }
 .matrix .total-cell { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .matrix tbody tr.leader th, .matrix tbody tr.leader .total-cell { color: var(--c360-accent); }
+.matrix tbody tr.disqualified th, .matrix tbody tr.disqualified .total-cell { color: var(--c360-text-disabled); }
+.matrix tbody tr.disqualified .score-cell:not(.db-failed) input { opacity: .6; }
+.row-db-badge {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;
+  font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--c360-danger); background: var(--c360-danger-subtle);
+  border-radius: var(--c360-radius-sm); padding: 2px 6px; white-space: nowrap;
+}
+.row-db-badge .icon { width: 12px; height: 12px; }
 .matrix .total-head { font-size: 0.75rem; color: var(--c360-text-secondary); text-align: right; }
 .matrix-empty { color: var(--c360-text-disabled); font-size: 0.875rem; text-align: center; padding: 20px 0; }
 

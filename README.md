@@ -33,9 +33,25 @@ score = Σ(rating × weight) / Σ(weight)     → a number from 0 to 10
 Because it's normalized by total weight, adding criteria or changing weights keeps every
 option on the same 0–10 scale, so comparisons stay honest.
 
+### Dealbreakers — fixing weighted-sum's biggest weakness
+
+A plain weighted average is **fully compensatory**: an option that's catastrophic on the
+one thing you care about most can still "win" if it's strong everywhere else, because the
+average just smooths the disaster away. That's the most common, well-founded complaint
+about this class of scoring model.
+
+FigureLifeOut fixes it: mark any criterion as a **dealbreaker**. If an option scores 2 or
+below on a dealbreaker, it's **disqualified outright** — shown struck through with a clear
+reason, removed from contention for the win — no matter how well it scores everywhere else.
+If every option fails a dealbreaker, the app says so plainly instead of quietly crowning a
+disqualified option "the winner." A blank (unscored) cell never disqualifies — only an
+explicit low score does.
+
 ## Features
 
 - ⚖️ Weighted criteria with live-updating results
+- 🚫 **Dealbreakers** — mark a criterion as a hard requirement; options that fail it are
+  disqualified outright, not just averaged down (see above)
 - 📊 Results chart — a weighted bar ranking so the standing reads at a glance
 - ◍ **Coverage ring** — the Cerulean360 signature ring gauge, showing how much of the matrix
   you've actually scored; it turns amber when the matrix is too sparse to trust the result yet
@@ -96,9 +112,9 @@ dev-only dependency used for testing. Open `index.html`, or serve the folder wit
 
 ## Testing
 
-End-to-end tests drive a real headless browser and cover scoring, the insight engine,
-sensitivity analysis, the gut check, keyboard navigation, shareable links, persistence, and
-offline PWA behavior.
+End-to-end tests drive a real headless browser and cover scoring, dealbreaker
+disqualification, the insight engine, sensitivity analysis, the gut check, keyboard
+navigation, shareable links, persistence, and offline PWA behavior.
 
 ```bash
 npm install          # dev dependencies: ESLint, Playwright
