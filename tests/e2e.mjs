@@ -205,6 +205,25 @@ test("removing a criterion is undoable and restores its scores", async (t) => {
   assert.equal(await page.textContent(".rb-winner"), "Take the offer");
 });
 
+test("reset scores clears the matrix and is undoable", async (t) => {
+  const page = await freshPage(t);
+  // Seeded example has scores; the banner and matrix totals reflect them.
+  assert.equal(await page.textContent(".rb-winner"), "Take the offer");
+  const before = await page.$$eval(".score-cell input", (els) => els.map((e) => e.value));
+  assert.ok(before.some((v) => v !== ""), "seeded matrix should start with scores");
+
+  await page.click("#reset-scores");
+  await page.waitForFunction(() => document.querySelector("#result-banner")?.hidden === true);
+  const cleared = await page.$$eval(".score-cell input", (els) => els.map((e) => e.value));
+  assert.ok(cleared.every((v) => v === ""), "all score cells should be empty after reset");
+
+  await page.click(".toast-action"); // Undo
+  await page.waitForSelector(".rb-winner");
+  assert.equal(await page.textContent(".rb-winner"), "Take the offer");
+  const restored = await page.$$eval(".score-cell input", (els) => els.map((e) => e.value));
+  assert.deepEqual(restored, before, "scores should be restored exactly");
+});
+
 test("score cells have screen-reader labels and Enter advances the grid", async (t) => {
   const page = await freshPage(t);
   await page.click("#new-decision");

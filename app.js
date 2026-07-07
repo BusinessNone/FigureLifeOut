@@ -118,6 +118,7 @@
     helpClose: $("#help-close"),
     notes: $("#notes-input"),
     sortToggle: $("#sort-toggle"),
+    resetScores: $("#reset-scores"),
     csvBtn: $("#csv-btn"),
     criteria: $("#criteria-list"),
     critForm: $("#criterion-form"),
@@ -1180,6 +1181,28 @@
   });
 
   el.csvBtn.addEventListener("click", exportCsv);
+
+  el.resetScores.addEventListener("click", () => {
+    const d = active();
+    if (!d) return;
+    const hasAny = Object.values(d.scores).some((row) => Object.values(row || {}).some((v) => Number.isFinite(v)));
+    if (!hasAny) {
+      toast("There are no scores to reset.");
+      return;
+    }
+    const backup = JSON.parse(JSON.stringify(d.scores));
+    d.scores = {};
+    save();
+    render();
+    toast("Cleared all scores.", {
+      label: "Undo",
+      fn: () => {
+        d.scores = backup;
+        save();
+        render();
+      },
+    });
+  });
 
   el.deleteBtn.addEventListener("click", () => {
     const d = active();
