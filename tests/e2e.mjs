@@ -310,6 +310,16 @@ test("share link round-trips a decision and keeps notes private", async (t) => {
   assert.ok(!recipient.url().includes("#d="), "hash should be cleared after import");
 });
 
+test("decisions show a last-edited time and sort most-recent-first", async (t) => {
+  const page = await freshPage(t);
+  assert.match(await page.textContent("#decision-list .li-time"), /ago|just now/);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="job"]');
+  await page.waitForFunction(() => document.querySelectorAll("#decision-list li").length === 2);
+  const firstTitle = await page.$eval("#decision-list li .li-title", (el) => el.textContent);
+  assert.equal(firstTitle, "Which job should I take?", "newest decision sorts to the top");
+});
+
 test("keyboard shortcuts help opens via ? and button, closes on Escape", async (t) => {
   const page = await freshPage(t);
   // Opens with the "?" key (not while typing).

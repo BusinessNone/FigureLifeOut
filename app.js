@@ -52,6 +52,9 @@
   };
 
   const save = () => {
+    // Stamp the active decision as edited (covers the vast majority of mutations).
+    const a = state.decisions.find((d) => d.id === state.activeId);
+    if (a) a.updatedAt = Date.now();
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
     } catch {
@@ -144,6 +147,7 @@
       notes: "",
       gut: null,    // optionId the user's intuition favors
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
   }
 
@@ -154,7 +158,26 @@
     if (!d.scores || typeof d.scores !== "object") d.scores = {};
     if (!Array.isArray(d.criteria)) d.criteria = [];
     if (!Array.isArray(d.options)) d.options = [];
+    if (!d.updatedAt) d.updatedAt = d.createdAt || Date.now();
     return d;
+  }
+
+  // Compact relative time, e.g. "just now", "5m ago", "3d ago".
+  function relTime(ts) {
+    if (!ts) return "";
+    const s = Math.round((Date.now() - ts) / 1000);
+    if (s < 45) return "just now";
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const dd = Math.round(h / 24);
+    if (dd < 7) return `${dd}d ago`;
+    const w = Math.round(dd / 7);
+    if (w < 5) return `${w}w ago`;
+    const mo = Math.round(dd / 30);
+    if (mo < 12) return `${mo}mo ago`;
+    return `${Math.round(dd / 365)}y ago`;
   }
 
   /* A subtle low/mid/high tint for a 0–10 score, using semantic subtle
@@ -354,15 +377,18 @@
   function renderSidebar() {
     el.list.innerHTML = "";
     if (state.decisions.length === 0) return;
-    // Most recent first
-    const ordered = [...state.decisions].sort((a, b) => b.createdAt - a.createdAt);
+    // Most recently edited first.
+    const ordered = [...state.decisions].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
     for (const d of ordered) {
       const li = document.createElement("li");
       li.className = d.id === state.activeId ? "active" : "";
       const { rows } = computeResults(d);
       const leader = rows[0];
       const leadLabel = leader && leader.total > 0 ? leader.opt.name : "";
-      li.innerHTML = `<span class="li-title">${escapeHtml(d.title || "Untitled decision")}</span>` +
+      const time = relTime(d.updatedAt);
+      li.innerHTML = `<span class="li-main"><span class="li-title">${escapeHtml(d.title || "Untitled decision")}</span>` +
+        (time ? `<span class="li-time">${time}</span>` : "") +
+        `</span>` +
         (leadLabel ? `<span class="li-lead" title="Leading: ${escapeHtml(leadLabel)}">${icon("award")}</span>` : "");
       li.addEventListener("click", () => {
         state.activeId = d.id;
@@ -864,6 +890,7 @@
     copy.title = (d.title || "Untitled decision") + " (copy)";
     copy.gut = null;
     copy.createdAt = Date.now();
+    copy.updatedAt = Date.now();
     state.decisions.push(copy);
     state.activeId = copy.id;
     save();

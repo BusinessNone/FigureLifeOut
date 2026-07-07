@@ -171,8 +171,10 @@ body {
   content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
   width: 3px; border-radius: var(--c360-radius-full); background: var(--c360-accent);
 }
+.decision-list li .li-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .decision-list li .li-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.decision-list li .li-lead { color: var(--c360-accent); display: inline-flex; flex-shrink: 0; }
+.decision-list li .li-time { font-size: 0.6875rem; line-height: 1rem; color: var(--c360-text-disabled); }
+.decision-list li .li-lead { color: var(--c360-accent); display: inline-flex; flex-shrink: 0; align-self: center; }
 .decision-list li .li-lead .icon { width: 14px; height: 14px; }
 .sidebar-foot { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--c360-border); }
 
