@@ -7,6 +7,29 @@
   const STORE_KEY = "figurelifeout.v1";
   const THEME_KEY = "figurelifeout.theme";
 
+  /* ---------- Lucide icons (inlined; one set per repo, per C360) ---------- */
+  const ICONS = {
+    compass: `<circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/>`,
+    moon: `<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>`,
+    sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
+    target: `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`,
+    search: `<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>`,
+    pencil: `<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>`,
+    "sliders-horizontal": `<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>`,
+    "circle-check": `<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>`,
+    "circle-x": `<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`,
+    scale: `<path d="M12 3v18"/><path d="m19 8 3 8a5 5 0 0 1-6 0zV7"/><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"/><path d="m5 8 3 8a5 5 0 0 1-6 0zV7"/><path d="M7 21h10"/>`,
+    award: `<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>`,
+    briefcase: `<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>`,
+    house: `<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>`,
+    "shopping-cart": `<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>`,
+    "file-pen": `<path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/>`,
+    "heart-pulse": `<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>`,
+  };
+  function icon(name, cls) {
+    return `<svg class="icon${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  }
+
   /* ---------- tiny id + storage helpers ---------- */
   let _seq = 0;
   const uid = () => `${Date.now().toString(36)}${(_seq++).toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -37,24 +60,24 @@
 
   /* Starter templates — curated criteria with sensible default weights. */
   const TEMPLATES = [
-    { id: "blank", icon: "📝", name: "Blank", desc: "Start from scratch", title: "", criteria: [] },
+    { id: "blank", icon: "file-pen", name: "Blank", desc: "Start from scratch", title: "", criteria: [] },
     {
-      id: "job", icon: "💼", name: "Job offer", desc: "Weigh a role or offer",
+      id: "job", icon: "briefcase", name: "Job offer", desc: "Weigh a role or offer",
       title: "Which job should I take?",
       criteria: [["Compensation", 8], ["Work-life balance", 8], ["Growth & learning", 7], ["Team & culture", 7], ["Commute / location", 5]],
     },
     {
-      id: "home", icon: "🏡", name: "Where to live", desc: "Compare places to live",
+      id: "home", icon: "house", name: "Where to live", desc: "Compare places to live",
       title: "Where should I live?",
       criteria: [["Cost of living", 8], ["Career opportunities", 7], ["Climate & surroundings", 6], ["Close to people I love", 7], ["Lifestyle & things to do", 6]],
     },
     {
-      id: "buy", icon: "🛒", name: "Big purchase", desc: "A car, gadget, anything pricey",
+      id: "buy", icon: "shopping-cart", name: "Big purchase", desc: "A car, gadget, anything pricey",
       title: "Which one should I buy?",
       criteria: [["Price / value", 8], ["Quality & reliability", 8], ["Features I actually need", 7], ["Longevity / resale", 5]],
     },
     {
-      id: "life", icon: "🧭", name: "Life crossroads", desc: "A major life direction",
+      id: "life", icon: "compass", name: "Life crossroads", desc: "A major life direction",
       title: "What should I do?",
       criteria: [["Happiness & fulfillment", 9], ["Financial impact", 7], ["Impact on relationships", 7], ["Growth & challenge", 6], ["Alignment with my values", 8]],
     },
@@ -125,11 +148,13 @@
     return d;
   }
 
-  /* A subtle red→amber→green tint for a 0–10 score; theme-agnostic. */
+  /* A subtle low/mid/high tint for a 0–10 score, using semantic subtle
+     tokens so it stays on-palette and theme-aware. */
   function heatColor(score) {
     if (!Number.isFinite(score)) return "";
-    const hue = (Math.max(0, Math.min(10, score)) / 10) * 130; // 0=red, 130=green
-    return `hsl(${hue} 65% 45% / 0.16)`;
+    if (score <= 3) return "var(--c360-danger-subtle)";
+    if (score <= 6) return "var(--c360-warning-subtle)";
+    return "var(--c360-success-subtle)";
   }
 
   /* Weighted result: for each option, sum(score * weight) / sum(weight) → 0..10 scale */
@@ -225,9 +250,9 @@
     if (rows.length >= 2) {
       const margin = leader.normalized - runner.normalized;
       if (margin < 0.3) {
-        out.push({ tone: "warn", icon: "⚖️", html: `<strong>Photo finish.</strong> “${escapeHtml(leader.opt.name)}” and “${escapeHtml(runner.opt.name)}” are within ${margin.toFixed(1)} of each other — the math won't decide this one for you.` });
+        out.push({ tone: "warn", icon: "scale", html: `<strong>Photo finish.</strong> “${escapeHtml(leader.opt.name)}” and “${escapeHtml(runner.opt.name)}” are within ${margin.toFixed(1)} of each other — the math won't decide this one for you.` });
       } else if (margin >= 1.8) {
-        out.push({ tone: "good", icon: "✅", html: `<strong>Clear leader.</strong> “${escapeHtml(leader.opt.name)}” is a decisive ${margin.toFixed(1)} points ahead — a robust result.` });
+        out.push({ tone: "good", icon: "circle-check", html: `<strong>Clear leader.</strong> “${escapeHtml(leader.opt.name)}” is a decisive ${margin.toFixed(1)} points ahead — a robust result.` });
       }
     }
 
@@ -238,7 +263,7 @@
         if (winnerWithout(d, c.id) !== leader.opt.id) { swing = c; break; }
       }
       if (swing) {
-        out.push({ tone: "info", icon: "🎯", html: `<strong>This hinges on “${escapeHtml(swing.name)}.”</strong> Drop that one criterion and a different option wins. Make sure you scored it honestly.` });
+        out.push({ tone: "info", icon: "target", html: `<strong>This hinges on “${escapeHtml(swing.name)}.”</strong> Drop that one criterion and a different option wins. Make sure you scored it honestly.` });
       }
     }
 
@@ -249,18 +274,18 @@
         const everyGE = d.criteria.every((c) => scoreOf(d, b.id, c.id) >= scoreOf(d, a.id, c.id));
         const someGT = d.criteria.some((c) => scoreOf(d, b.id, c.id) > scoreOf(d, a.id, c.id));
         if (everyGE && someGT) {
-          out.push({ tone: "info", icon: "🧹", html: `<strong>“${escapeHtml(a.name)}” is dominated.</strong> “${escapeHtml(b.name)}” matches or beats it on every criterion — you can probably take it off the table.` });
+          out.push({ tone: "info", icon: "circle-x", html: `<strong>“${escapeHtml(a.name)}” is dominated.</strong> “${escapeHtml(b.name)}” matches or beats it on every criterion — you can probably take it off the table.` });
           break;
         }
       }
-      if (out.filter((i) => i.icon === "🧹").length) break; // one is enough
+      if (out.filter((i) => i.icon === "circle-x").length) break; // one is enough
     }
 
     // 4) Options barely differ — criteria aren't discriminating
     if (rows.length >= 2) {
       const spread = leader.normalized - rows[rows.length - 1].normalized;
       if (spread < 0.6) {
-        out.push({ tone: "warn", icon: "🔍", html: `<strong>Your options score almost the same.</strong> Either they're genuinely equivalent, or you're missing a criterion that actually separates them.` });
+        out.push({ tone: "warn", icon: "search", html: `<strong>Your options score almost the same.</strong> Either they're genuinely equivalent, or you're missing a criterion that actually separates them.` });
       }
     }
 
@@ -268,12 +293,12 @@
     let blanks = 0, cells = 0;
     for (const o of d.options) for (const c of d.criteria) { cells++; if (!Number.isFinite(d.scores[o.id]?.[c.id])) blanks++; }
     if (blanks > 0 && blanks < cells) {
-      out.push({ tone: "warn", icon: "✏️", html: `<strong>${blanks} of ${cells} scores are blank.</strong> They're counting as 0 — fill them in for a fairer comparison.` });
+      out.push({ tone: "warn", icon: "pencil", html: `<strong>${blanks} of ${cells} scores are blank.</strong> They're counting as 0 — fill them in for a fairer comparison.` });
     }
 
     // 6) Flat weighting nudge
     if (d.criteria.length >= 3 && d.criteria.every((c) => c.weight === d.criteria[0].weight)) {
-      out.push({ tone: "info", icon: "🎚️", html: `<strong>Every criterion is weighted equally.</strong> If some matter more than others, adjust the weights to sharpen the result.` });
+      out.push({ tone: "info", icon: "sliders-horizontal", html: `<strong>Every criterion is weighted equally.</strong> If some matter more than others, adjust the weights to sharpen the result.` });
     }
 
     void nameById;
@@ -328,7 +353,7 @@
       const leader = rows[0];
       const leadLabel = leader && leader.total > 0 ? leader.opt.name : "";
       li.innerHTML = `<span class="li-title">${escapeHtml(d.title || "Untitled decision")}</span>` +
-        (leadLabel ? `<span class="li-lead" title="Leading: ${escapeHtml(leadLabel)}">★</span>` : "");
+        (leadLabel ? `<span class="li-lead" title="Leading: ${escapeHtml(leadLabel)}">${icon("award")}</span>` : "");
       li.addEventListener("click", () => {
         state.activeId = d.id;
         save();
@@ -416,7 +441,8 @@
 
     ordered.forEach((o, ri) => {
       const isLeader = o.id === leaderId;
-      html += `<tr class="${isLeader ? "leader" : ""}"><th>${escapeHtml(o.name)}</th>`;
+      const star = isLeader ? `<span class="lead-star">${icon("award")}</span>` : "";
+      html += `<tr class="${isLeader ? "leader" : ""}"><th>${star}${escapeHtml(o.name)}</th>`;
       d.criteria.forEach((c, ci) => {
         const v = d.scores[o.id]?.[c.id];
         const val = Number.isFinite(v) ? v : "";
@@ -502,7 +528,7 @@
       const pct = Math.max(0, Math.min(100, (r.normalized / 10) * 100));
       const isLeader = r.opt.id === leaderId && r.total > 0;
       return `<div class="bar-row ${isLeader ? "leader" : ""}">
-        <div class="bar-label"><span class="bl-name" title="${escapeHtml(r.opt.name)}">${escapeHtml(r.opt.name)}</span><span class="bl-val">${r.normalized.toFixed(1)}</span></div>
+        <div class="bar-label"><span class="bl-name" title="${escapeHtml(r.opt.name)}">${isLeader ? icon("award") : ""}${escapeHtml(r.opt.name)}</span><span class="bl-val">${r.normalized.toFixed(1)}</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
       </div>`;
     }).join("");
@@ -528,7 +554,7 @@
       el.insights.innerHTML = `<li class="insights-empty">Score a few more cells and insights will appear here.</li>`;
     } else {
       el.insights.innerHTML = insights.map((i) =>
-        `<li class="insight ${i.tone}"><span class="ins-icon">${i.icon}</span><span>${i.html}</span></li>`
+        `<li class="insight ${i.tone}"><span class="ins-icon">${icon(i.icon)}</span><span>${i.html}</span></li>`
       ).join("");
     }
   }
@@ -557,15 +583,15 @@
       const gutName = d.options.find((o) => o.id === d.gut)?.name;
       if (gutName) {
         if (d.gut === winner.opt.id) {
-          gutLine = `<div class="rb-gut agree">🫀 Your gut agrees with the numbers.</div>`;
+          gutLine = `<div class="rb-gut agree">${icon("heart-pulse")} Your gut agrees with the numbers.</div>`;
         } else {
-          gutLine = `<div class="rb-gut disagree">🫀 Your gut says “${escapeHtml(gutName)}” — worth asking what the numbers are missing.</div>`;
+          gutLine = `<div class="rb-gut disagree">${icon("heart-pulse")} Your gut says “${escapeHtml(gutName)}” — worth asking what the numbers are missing.</div>`;
         }
       }
     }
 
     el.banner.innerHTML = `
-      <span class="rb-emoji">${margin !== null && margin < 0.3 ? "⚖️" : "✨"}</span>
+      <span class="rb-emoji">${margin !== null && margin < 0.3 ? icon("scale") : icon("award")}</span>
       <div class="rb-text">
         <h3>Leaning toward</h3>
         <div class="rb-winner">${escapeHtml(winner.opt.name)}</div>
@@ -582,7 +608,7 @@
     modalReturnFocus = document.activeElement;
     el.templateGrid.innerHTML = TEMPLATES.map((t) => `
       <button class="template-card" data-tpl="${t.id}">
-        <span class="tc-icon">${t.icon}</span>
+        <span class="tc-icon">${icon(t.icon)}</span>
         <span><span class="tc-name">${escapeHtml(t.name)}</span><span class="tc-desc">${escapeHtml(t.desc)}</span></span>
       </button>`).join("");
     el.templateGrid.querySelectorAll(".template-card").forEach((btn) => {
@@ -851,7 +877,8 @@
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    el.themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+    el.themeToggle.innerHTML = theme === "dark" ? icon("sun") : icon("moon");
+    el.themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
     try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
   }
 

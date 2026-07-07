@@ -59,6 +59,16 @@ test("seeded example shows a winner, chart, and robustness readout", async (t) =
   assert.ok(!(await page.isVisible("#empty-state")), "empty state should be hidden when a decision is open");
 });
 
+test("primary action uses the Cerulean360 accent and Lucide icons (no emoji)", async (t) => {
+  const page = await freshPage(t);
+  // Cerulean accent (#007BA7) on the one primary action.
+  assert.equal(await page.$eval("#new-decision", (el) => getComputedStyle(el).backgroundColor), "rgb(0, 123, 167)");
+  // Icons are inline SVG, not emoji glyphs.
+  assert.ok(await page.$(".brand-mark svg.icon"), "brand mark should be an inline SVG icon");
+  const brandText = await page.$eval(".brand-mark", (el) => el.textContent.trim());
+  assert.equal(brandText, "", "brand mark should contain no emoji text");
+});
+
 test("job template pre-fills criteria and title", async (t) => {
   const page = await freshPage(t);
   await page.click("#new-decision");

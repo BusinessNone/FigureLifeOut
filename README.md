@@ -63,6 +63,14 @@ option on the same 0–10 scale, so comparisons stay honest.
 - 📱 Responsive — works on phone and desktop
 - 🔒 100% local — no server, no tracking, no network calls
 
+## Design
+
+The UI conforms to the **Cerulean360 (C360) design system** — a cerulean accent, token-only
+colors (light and dark shipped from the same tokens), the Inter/JetBrains Mono type scale,
+quiet 1px chrome, and a single Lucide icon set (no emoji in product UI). The full spec lives
+at [`.claude/rules/design-system.md`](.claude/rules/design-system.md) so any agent working in
+this repo conforms without being asked.
+
 ## Files
 
 | File | Purpose |

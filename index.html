@@ -9,21 +9,21 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#4f46e5" />
+  <meta name="theme-color" content="#007BA7" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="FigureLifeOut" />
 </head>
 <body>
   <header class="app-header">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">🧭</span>
+      <span class="brand-mark" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/></svg></span>
       <div>
         <h1>FigureLifeOut</h1>
         <p class="tagline">Turn a hard choice into a clear one.</p>
       </div>
     </div>
     <div class="header-actions">
-      <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle light/dark theme">🌙</button>
+      <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle light/dark theme"></button>
     </div>
   </header>
 
@@ -45,7 +45,7 @@
     <!-- Main workspace -->
     <section class="workspace" id="workspace">
       <div class="empty-state" id="empty-state" hidden>
-        <div class="empty-illustration" aria-hidden="true">🧭</div>
+        <div class="empty-illustration" aria-hidden="true"><svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/></svg></div>
         <h2>Nothing to figure out… yet</h2>
         <p>Create a decision to weigh your options against what actually matters to you.</p>
         <button class="btn btn-primary" id="empty-new">Start a decision</button>
@@ -54,14 +54,14 @@
       <div id="decision-editor" hidden>
         <div class="editor-head">
           <input id="decision-title" class="title-input" type="text" placeholder="What are you deciding?" />
-          <button id="share-decision" class="icon-btn" title="Copy a shareable link" aria-label="Share decision">🔗</button>
-          <button id="duplicate-decision" class="icon-btn" title="Duplicate this decision" aria-label="Duplicate decision">⧉</button>
-          <button id="delete-decision" class="icon-btn danger" title="Delete this decision" aria-label="Delete decision">🗑</button>
+          <button id="share-decision" class="icon-btn" title="Copy a shareable link" aria-label="Share decision"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
+          <button id="duplicate-decision" class="icon-btn" title="Duplicate this decision" aria-label="Duplicate decision"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+          <button id="delete-decision" class="icon-btn danger" title="Delete this decision" aria-label="Delete decision"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
 
         <!-- Gut check -->
         <div id="gut-check" class="gut-check" hidden>
-          <span class="gut-label">🫀 Before the math — which way does your gut lean?</span>
+          <span class="gut-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg> Before the math — which way does your gut lean?</span>
           <select id="gut-select" aria-label="Your gut pick">
             <option value="">No pick yet</option>
           </select>
@@ -122,8 +122,8 @@
             <h3>Score each option</h3>
             <div class="matrix-tools">
               <span class="hint">rate 0–10 · <kbd>Tab</kbd>/<kbd>Enter</kbd> to move</span>
-              <button id="sort-toggle" class="btn btn-ghost btn-sm" title="Sort options by score">↕ Sort by score</button>
-              <button id="csv-btn" class="btn btn-ghost btn-sm" title="Export matrix as CSV">CSV</button>
+              <button id="sort-toggle" class="btn btn-ghost btn-sm" title="Sort options by score"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg> Sort by score</button>
+              <button id="csv-btn" class="btn btn-ghost btn-sm" title="Export matrix as CSV">Export CSV</button>
             </div>
           </div>
           <div class="matrix-scroll">
@@ -153,7 +153,7 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-head">
         <h2 id="modal-title">Start a decision</h2>
-        <button id="modal-close" class="icon-btn" aria-label="Close">✕</button>
+        <button id="modal-close" class="icon-btn" aria-label="Close"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <p class="modal-sub">Pick a starting point — or start blank. You can change everything later.</p>
       <div id="template-grid" class="template-grid"></div>
