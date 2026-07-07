@@ -166,13 +166,41 @@ test("decisions persist across reload", async (t) => {
 
 test("cleared decisions do not resurrect the seeded example on reload", async (t) => {
   const page = await freshPage(t);
-  // Delete the seeded decision (dialog auto-accept).
-  page.on("dialog", (d) => d.accept());
   await page.click("#delete-decision");
   await page.waitForSelector("#empty-state:not([hidden])");
   await page.reload();
   await page.waitForSelector("#empty-state:not([hidden])");
   assert.equal((await page.$$("#decision-list li")).length, 0, "seeded example resurrected after reload");
+});
+
+test("deleting a decision can be undone from the toast", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#delete-decision");
+  await page.waitForSelector("#empty-state:not([hidden])");
+  await page.click(".toast-action"); // Undo
+  await page.waitForSelector("#decision-editor:not([hidden])");
+  assert.equal(await page.textContent(".rb-winner"), "Take the offer");
+  assert.equal((await page.$$("#decision-list li")).length, 1);
+});
+
+test("removing a criterion is undoable and restores its scores", async (t) => {
+  const page = await freshPage(t);
+  // Seeded decision leads with "Take the offer"; remove the top criterion, then undo.
+  const before = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
+  await page.click("#criteria-list .chip .remove");
+  await page.waitForFunction(
+    (n) => document.querySelectorAll("#criteria-list .chip-name").length === n - 1,
+    before.length
+  );
+  await page.click(".toast-action"); // Undo
+  await page.waitForFunction(
+    (n) => document.querySelectorAll("#criteria-list .chip-name").length === n,
+    before.length
+  );
+  const after = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
+  assert.deepEqual(after, before, "criterion should be restored in place");
+  // Scores survived: the weighted winner is unchanged.
+  assert.equal(await page.textContent(".rb-winner"), "Take the offer");
 });
 
 test("score cells have screen-reader labels and Enter advances the grid", async (t) => {

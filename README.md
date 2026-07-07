@@ -56,6 +56,8 @@ option on the same 0–10 scale, so comparisons stay honest.
 - 🔗 **Shareable links** — copy a link that encodes your whole matrix so someone can open
   it, see it, and tweak it. The data rides in the URL (no server stores it), and your
   private notes and gut pick are deliberately left out of the link.
+- ↩️ **Undoable deletes** — removing a decision, criterion, or option surfaces an Undo toast
+  and restores it (with its scores) in place; no blocking confirm dialogs
 - 🗂 Multiple saved decisions, kept in your browser's local storage
 - ⌨️ **Keyboard-first & accessible** — fly through the score grid with Tab/Enter, a
   focus-trapped template dialog that restores focus, screen-reader labels on every score

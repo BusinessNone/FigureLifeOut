@@ -118,6 +118,7 @@
     matrix: $("#matrix"),
     matrixEmpty: $("#matrix-empty"),
     themeToggle: $("#theme-toggle"),
+    toast: $("#toast"),
     exportBtn: $("#export-btn"),
     importBtn: $("#import-btn"),
     importFile: $("#import-file"),
@@ -389,10 +390,28 @@
         renderSidebar();
       });
       li.querySelector(".remove").addEventListener("click", () => {
+        const idx = d.criteria.findIndex((x) => x.id === c.id);
+        const removedScores = {};
+        for (const optId in d.scores) {
+          if (d.scores[optId] && Number.isFinite(d.scores[optId][c.id])) {
+            removedScores[optId] = d.scores[optId][c.id];
+            delete d.scores[optId][c.id];
+          }
+        }
         d.criteria = d.criteria.filter((x) => x.id !== c.id);
-        for (const optId in d.scores) delete d.scores[optId]?.[c.id];
         save();
         render();
+        toast(`Removed “${c.name}.”`, {
+          label: "Undo",
+          fn: () => {
+            d.criteria.splice(Math.min(idx, d.criteria.length), 0, c);
+            for (const optId in removedScores) {
+              (d.scores[optId] || (d.scores[optId] = {}))[c.id] = removedScores[optId];
+            }
+            save();
+            render();
+          },
+        });
       });
       el.criteria.appendChild(li);
     }
@@ -407,10 +426,21 @@
         <span class="chip-name" title="${escapeHtml(o.name)}">${escapeHtml(o.name)}</span>
         <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(o.name)}">×</button>`;
       li.querySelector(".remove").addEventListener("click", () => {
+        const idx = d.options.findIndex((x) => x.id === o.id);
+        const removedScores = d.scores[o.id];
         d.options = d.options.filter((x) => x.id !== o.id);
         delete d.scores[o.id];
         save();
         render();
+        toast(`Removed “${o.name}.”`, {
+          label: "Undo",
+          fn: () => {
+            d.options.splice(Math.min(idx, d.options.length), 0, o);
+            if (removedScores) d.scores[o.id] = removedScores;
+            save();
+            render();
+          },
+        });
       });
       el.options.appendChild(li);
     }
@@ -908,12 +938,25 @@
 
   /* ---------- misc ---------- */
   let toastTimer = null;
-  function toast(msg) {
-    const t = $("#toast");
-    t.textContent = msg;
+  // action (optional): { label, fn } renders an inline button (e.g. Undo).
+  function toast(msg, action) {
+    const t = el.toast;
+    t.innerHTML = `<span class="toast-msg"></span>`;
+    t.querySelector(".toast-msg").textContent = msg;
+    if (action) {
+      const btn = document.createElement("button");
+      btn.className = "toast-action";
+      btn.textContent = action.label;
+      btn.addEventListener("click", () => {
+        clearTimeout(toastTimer);
+        t.hidden = true;
+        action.fn();
+      });
+      t.appendChild(btn);
+    }
     t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
   }
 
   function escapeHtml(s) {
@@ -974,12 +1017,21 @@
   el.deleteBtn.addEventListener("click", () => {
     const d = active();
     if (!d) return;
-    if (!confirm(`Delete “${d.title || "Untitled decision"}”? This can't be undone.`)) return;
+    const idx = state.decisions.findIndex((x) => x.id === d.id);
     state.decisions = state.decisions.filter((x) => x.id !== d.id);
     state.activeId = state.decisions[0]?.id || null;
     save();
     render();
-    toast("Decision deleted.");
+    toast(`Deleted “${d.title || "Untitled decision"}.”`, {
+      label: "Undo",
+      fn: () => {
+        state.decisions.splice(Math.min(idx, state.decisions.length), 0, d);
+        state.activeId = d.id;
+        save();
+        render();
+        toast("Restored.");
+      },
+    });
   });
 
   el.critForm.addEventListener("submit", (e) => {
