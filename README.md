@@ -52,21 +52,23 @@ option on the same 0–10 scale, so comparisons stay honest.
   whether the numbers agree. When they don't, that gap is the most useful thing on screen.
 - 📝 Notes & reflections — capture the things a number can't
 - ↕️ Sort options by score, or keep entry order while you type
+- ⌫ **Reset scores** — clear the whole matrix to re-score from scratch, undoable
 - ⧉ Duplicate a decision to explore "what if" scenarios without touching the original
 - 🔗 **Shareable links** — copy a link that encodes your whole matrix so someone can open
   it, see it, and tweak it. The data rides in the URL (no server stores it), and your
   private notes and gut pick are deliberately left out of the link.
 - ↩️ **Undoable deletes** — removing a decision, criterion, or option surfaces an Undo toast
   and restores it (with its scores) in place; no blocking confirm dialogs
-- 🗂 Multiple saved decisions, kept in your browser's local storage
+- 🗂 Multiple saved decisions, each showing a last-edited time and sorted most-recent-first
 - ↕️ **Reorder criteria & options** — drag by the handle, or focus it and use the arrow
   keys; the matrix columns and rows follow, and the order persists
-- ⌨️ **Keyboard-first & accessible** — fly through the score grid with Tab/Enter, a
-  focus-trapped template dialog that restores focus, screen-reader labels on every score
-  cell, visible focus rings, and `prefers-reduced-motion` support
+- ⌨️ **Keyboard-first & accessible** — fly through the score grid with Tab/Enter, reorder
+  with arrow keys, a `?` shortcuts overlay, a focus-trapped template dialog that restores
+  focus, screen-reader labels on every score cell and live announcements for leader changes
+  and reordering, visible focus rings, and `prefers-reduced-motion` support
 - 🌗 Light / dark theme
 - 📤 Export / import as JSON (portable backups) or export the matrix as CSV
-- 📱 Responsive — works on phone and desktop
+- 📱 Responsive — works on phone and desktop, verified down to a 375px screen
 - 🔒 100% local — no server, no tracking, no network calls
 
 ## Design
