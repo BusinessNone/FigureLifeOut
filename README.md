@@ -10,6 +10,10 @@ actually leaning.
 **[→ Open `index.html` in your browser](index.html)** — that's it. No install, no build,
 no account. Everything stays on your device.
 
+It's also an installable **Progressive Web App**: served over HTTPS (e.g. GitHub Pages),
+you can add it to your phone or desktop home screen and it works fully offline, like a
+native app — still with zero data leaving your device.
+
 ## How it works
 
 1. **Name what matters.** Add the criteria that drive the decision (salary, commute,
@@ -59,9 +63,18 @@ option on the same 0–10 scale, so comparisons stay honest.
 |------|---------|
 | `index.html` | Markup and structure |
 | `styles.css` | Theme, layout, components |
-| `app.js` | State, scoring math, rendering — plain vanilla JS |
+| `app.js` | State, scoring math, insight engine, rendering — plain vanilla JS |
+| `manifest.webmanifest` · `sw.js` | PWA manifest and offline service worker |
+| `icon*.png` · `icon.svg` | App icons |
+| `.github/workflows/deploy-pages.yml` | Auto-deploy to GitHub Pages on push to `main` |
 
 No dependencies. Open the file, or serve the folder with any static host.
+
+## Deploying
+
+Pushing to `main` triggers the included GitHub Actions workflow. To turn it on once:
+**repo Settings → Pages → Build and deployment → Source: "GitHub Actions".** The app then
+publishes to `https://<user>.github.io/<repo>/` and is installable from there.
 
 ---
 
