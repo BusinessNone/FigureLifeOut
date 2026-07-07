@@ -613,6 +613,28 @@ test("editor actions stay on-screen on a narrow (mobile) viewport", async (t) =>
   assert.ok(!hScroll, "page must not scroll horizontally on mobile");
 });
 
+test("touch devices get 40x40px minimum touch targets, still no overflow", async (t) => {
+  // pointer:coarse only activates with real touch emulation, not just a
+  // narrow viewport — a plain mouse context never exercises this CSS.
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 720 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  t.after(() => ctx.close());
+  await page.goto(base + "/");
+  await page.waitForSelector("#decision-editor:not([hidden])");
+  assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), true, "test setup should actually be coarse-pointer");
+
+  for (const id of ["#theme-toggle", "#help-btn", "#share-decision", "#duplicate-decision", "#delete-decision"]) {
+    const box = await page.$eval(id, (el) => { const r = el.getBoundingClientRect(); return { w: r.width, h: r.height, right: r.right }; });
+    assert.ok(box.w >= 40 && box.h >= 40, `${id} should be at least 40x40, got ${box.w}x${box.h}`);
+    assert.ok(box.right <= 375, `${id} must still stay on-screen at 40x40, right=${Math.round(box.right)}`);
+  }
+  const handle = await page.$eval("#criteria-list .chip .chip-handle", (el) => el.getBoundingClientRect());
+  assert.ok(handle.width >= 40 && handle.height >= 40, `drag handle should be at least 40x40, got ${handle.width}x${handle.height}`);
+
+  const hScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  assert.ok(!hScroll, "page must not scroll horizontally even with larger touch targets");
+});
+
 test("PWA: manifest, service worker, and offline reload", async (t) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();

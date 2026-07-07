@@ -585,3 +585,14 @@ kbd {
   .title-input { font-size: 1.25rem; line-height: 1.75rem; }
   .rb-text .rb-winner, .result-banner .rb-text .rb-winner { font-size: 1.25rem; line-height: 1.75rem; }
 }
+
+/* C360 accessibility floor: touch targets minimum 40x40px on touch layouts.
+   Scoped to coarse pointers so mouse/desktop density is unaffected — icon
+   visual size is unchanged, only the tappable area grows. */
+@media (pointer: coarse) {
+  .icon-btn { width: 40px; height: 40px; }
+  .chip .chip-handle, .chip .dealbreaker-toggle, .chip .remove { min-width: 40px; min-height: 40px; }
+  .btn-sm { min-height: 40px; }
+  .matrix .score-cell input { min-height: 40px; }
+  .toast-action { min-height: 40px; padding: 0 8px; }
+}
