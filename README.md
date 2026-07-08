@@ -96,6 +96,8 @@ explicit low score does.
 - 🌗 Light / dark theme
 - 📤 Export / import as JSON (portable backups) or export the matrix as CSV
 - 📱 Responsive — works on phone and desktop, verified down to a 375px screen
+- 🗔 **Safe with multiple tabs open** — editing different decisions in two tabs at once
+  merges instead of one save silently overwriting the other's
 - 🔒 100% local — no server, no tracking, no network calls
 
 ## Design

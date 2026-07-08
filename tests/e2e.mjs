@@ -673,6 +673,52 @@ test("a large 20x20 matrix builds, scores, and persists without breaking layout"
   assert.equal(await page.$$eval(".matrix .score-cell input", (els) => els.length), 400);
 });
 
+// save() always persists the *whole* decisions array, so without a merge
+// step the second tab to save would silently erase whatever the first
+// tab just wrote. Two pages in one context share localStorage (and the
+// "storage" event that fires cross-tab on writes), so this reproduces a
+// real two-tabs-open-at-once session.
+test("editing different decisions in two tabs does not clobber either one", async (t) => {
+  const ctx = await browser.newContext();
+  t.after(() => ctx.close());
+  const pageA = await ctx.newPage();
+  await pageA.goto(base + "/");
+  await pageA.waitForSelector("#decision-editor:not([hidden])");
+  const pageB = await ctx.newPage();
+  await pageB.goto(base + "/");
+  await pageB.waitForSelector("#decision-editor:not([hidden])");
+
+  // Tab A creates a brand-new decision that tab B has never seen.
+  await pageA.click("#new-decision");
+  await pageA.click('.template-card[data-tpl="blank"]');
+  await pageA.fill("#decision-title", "Tab A's new decision");
+
+  // Tab B should pick up tab A's write via the storage event without
+  // touching or losing its own (different) active decision.
+  await pageB.waitForFunction(() =>
+    [...document.querySelectorAll("#decision-list .li-title")].some((el) => el.textContent.includes("Tab A's new decision"))
+  );
+
+  // Tab B now edits its own (still-seeded) decision and saves.
+  await pageB.fill("#decision-title", "Tab B's edited title");
+
+  // Tab A should pick up tab B's edit in turn — proving the merge runs
+  // both directions, not just first-writer-wins.
+  await pageA.waitForFunction(() =>
+    [...document.querySelectorAll("#decision-list .li-title")].some((el) => el.textContent.includes("Tab B's edited title"))
+  );
+
+  // A fresh third tab reading localStorage from scratch is the ground
+  // truth: both edits must have survived, neither clobbered the other.
+  const pageC = await ctx.newPage();
+  t.after(() => pageC.close());
+  await pageC.goto(base + "/");
+  await pageC.waitForSelector("#decision-editor:not([hidden])");
+  const titles = await pageC.$$eval("#decision-list .li-title", (els) => els.map((e) => e.textContent));
+  assert.ok(titles.some((t) => t.includes("Tab A's new decision")), `expected tab A's decision to survive, got ${titles}`);
+  assert.ok(titles.some((t) => t.includes("Tab B's edited title")), `expected tab B's edit to survive, got ${titles}`);
+});
+
 test("criteria reorder by keyboard, update the matrix, and persist", async (t) => {
   const page = await freshPage(t);
   const before = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));

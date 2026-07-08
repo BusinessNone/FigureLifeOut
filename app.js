@@ -1533,6 +1533,32 @@
     e.target.value = "";
   });
 
+  // save() always writes the whole decisions array, so two tabs editing
+  // different decisions would otherwise clobber each other: the second
+  // tab to save wins and silently erases the first tab's changes. The
+  // "storage" event fires in *other* tabs when this key changes, so
+  // adopt everything from that fresh snapshot except the decision this
+  // tab currently has open — that one keeps its own in-memory edits
+  // until this tab saves again, at which point they win for everyone.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORE_KEY || e.newValue == null) return;
+    let incoming;
+    try {
+      incoming = JSON.parse(e.newValue);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(incoming.decisions)) return;
+    const fresh = incoming.decisions.filter((d) => d && typeof d === "object").map(normalizeDecision);
+    const mine = active();
+    state.decisions = fresh.map((d) => (mine && d.id === mine.id ? mine : d));
+    if (mine && !state.decisions.some((d) => d.id === mine.id)) state.decisions.unshift(mine);
+    if (!state.decisions.some((d) => d.id === state.activeId)) {
+      state.activeId = state.decisions[0]?.id ?? null;
+    }
+    render();
+  });
+
   /* ---------- boot ---------- */
   (function init() {
     let theme = "light";
