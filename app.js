@@ -30,6 +30,7 @@
     keyboard: `<path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/>`,
     clock: `<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>`,
     "octagon-alert": `<path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/>`,
+    "badge-check": `<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>`,
   };
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
@@ -112,6 +113,10 @@
     deleteBtn: $("#delete-decision"),
     duplicateBtn: $("#duplicate-decision"),
     shareBtn: $("#share-decision"),
+    decideBtn: $("#decide-btn"),
+    reopenBtn: $("#reopen-btn"),
+    decidedBadge: $("#decided-badge"),
+    decidedBadgeText: $("#decided-badge-text"),
     banner: $("#result-banner"),
     gutCheck: $("#gut-check"),
     gutSelect: $("#gut-select"),
@@ -158,6 +163,8 @@
       scores: {},   // scores[optionId][criterionId] = 0..10
       notes: "",
       gut: null,    // optionId the user's intuition favors
+      decided: false,
+      decidedAt: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -208,6 +215,8 @@
     }
     d.scores = scores;
     d.gut = typeof d.gut === "string" && optMap.has(d.gut) ? optMap.get(d.gut) : null;
+    d.decided = Boolean(d.decided);
+    d.decidedAt = d.decided && Number.isFinite(d.decidedAt) ? d.decidedAt : (d.decided ? Date.now() : null);
 
     if (!Number.isFinite(d.createdAt)) d.createdAt = Date.now();
     if (!Number.isFinite(d.updatedAt)) d.updatedAt = d.createdAt;
@@ -230,6 +239,14 @@
     const mo = Math.round(dd / 30);
     if (mo < 12) return `${mo}mo ago`;
     return `${Math.round(dd / 365)}y ago`;
+  }
+
+  // Absolute date, e.g. "Jul 8, 2026" — used for the decided-at record,
+  // which (unlike "last edited") is a fixed point worth reading precisely
+  // rather than as a fading relative time.
+  function absDate(ts) {
+    if (!Number.isFinite(ts)) return "";
+    return new Date(ts).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
 
   /* A subtle low/mid/high tint for a 0–10 score, using semantic subtle
@@ -435,7 +452,10 @@
     el.empty.hidden = true;
     el.editor.hidden = false;
     el.title.value = d.title;
+    el.title.readOnly = d.decided;
     el.notes.value = d.notes || "";
+    el.notes.readOnly = d.decided;
+    renderDecideControls(d);
     renderCriteria(d);
     renderOptions(d);
     renderGutCheck(d);
@@ -443,6 +463,18 @@
     renderBanner(d);
     renderInsights(d);
     renderCoverage(d);
+  }
+
+  // Toggle the Decide/Reopen buttons, the "Decided" badge, and the
+  // editing surfaces that only make sense while a decision is still open.
+  function renderDecideControls(d) {
+    el.decideBtn.hidden = d.decided;
+    el.reopenBtn.hidden = !d.decided;
+    el.decidedBadge.hidden = !d.decided;
+    if (d.decided) el.decidedBadgeText.textContent = `Decided ${absDate(d.decidedAt)}`;
+    el.critForm.hidden = d.decided;
+    el.optForm.hidden = d.decided;
+    el.resetScores.hidden = d.decided;
   }
 
   function renderGutCheck(d) {
@@ -458,6 +490,7 @@
       html += `<option value="${o.id}"${o.id === d.gut ? " selected" : ""}>${escapeHtml(o.name)}</option>`;
     }
     el.gutSelect.innerHTML = html;
+    el.gutSelect.disabled = d.decided;
   }
 
   function renderSidebar() {
@@ -475,6 +508,7 @@
       li.innerHTML = `<span class="li-main"><span class="li-title">${escapeHtml(d.title || "Untitled decision")}</span>` +
         (time ? `<span class="li-time">${time}</span>` : "") +
         `</span>` +
+        (d.decided ? `<span class="li-decided" title="Decided ${absDate(d.decidedAt)}">${icon("badge-check")}</span>` : "") +
         (leadLabel ? `<span class="li-lead" title="Leading: ${escapeHtml(leadLabel)}">${icon("award")}</span>` : "");
       li.addEventListener("click", () => {
         state.activeId = d.id;
@@ -565,25 +599,27 @@
 
   function renderCriteria(d) {
     el.criteria.innerHTML = "";
+    const locked = d.decided;
     for (const c of d.criteria) {
       const li = document.createElement("li");
       li.className = `chip${c.dealbreaker ? " dealbreaker" : ""}`;
       li.innerHTML = `
-        <button class="chip-handle" aria-label="Reorder ${escapeHtml(c.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
+        <button class="chip-handle" aria-label="Reorder ${escapeHtml(c.name)}" title="Drag to reorder, or focus and use arrow keys"${locked ? " disabled" : ""}>${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
-        <button class="dealbreaker-toggle" aria-pressed="${c.dealbreaker ? "true" : "false"}"
+        <button class="dealbreaker-toggle" aria-pressed="${c.dealbreaker ? "true" : "false"}"${locked ? " disabled" : ""}
           title="${c.dealbreaker ? `Dealbreaker — options scoring ${DEALBREAKER_THRESHOLD} or below here are disqualified. Click to unmark.` : `Mark as a dealbreaker: options scoring ${DEALBREAKER_THRESHOLD} or below here get disqualified, however well they score elsewhere.`}">
           ${icon("octagon-alert")}<span class="db-label">Dealbreaker</span>
         </button>
         <span class="weight-control">
-          <input type="range" min="1" max="10" value="${c.weight}" aria-label="Weight for ${escapeHtml(c.name)}" />
+          <input type="range" min="1" max="10" value="${c.weight}" aria-label="Weight for ${escapeHtml(c.name)}"${locked ? " disabled" : ""} />
           <span class="weight-val">${c.weight}</span>
         </span>
-        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(c.name)}">${icon("x")}</button>`;
-      makeReorderable(li, li.querySelector(".chip-handle"), d, "criteria", c.id, el.criteria);
+        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(c.name)}"${locked ? " disabled" : ""}>${icon("x")}</button>`;
+      if (!locked) makeReorderable(li, li.querySelector(".chip-handle"), d, "criteria", c.id, el.criteria);
       const range = li.querySelector("input");
       const val = li.querySelector(".weight-val");
       range.addEventListener("input", () => {
+        if (active()?.decided) return;
         c.weight = Number(range.value);
         val.textContent = c.weight;
         save();
@@ -593,12 +629,14 @@
         renderSidebar();
       });
       li.querySelector(".dealbreaker-toggle").addEventListener("click", () => {
+        if (active()?.decided) return;
         c.dealbreaker = !c.dealbreaker;
         save();
         render();
         announce(c.dealbreaker ? `${c.name} marked as a dealbreaker.` : `${c.name} is no longer a dealbreaker.`);
       });
       li.querySelector(".remove").addEventListener("click", () => {
+        if (active()?.decided) return;
         const idx = d.criteria.findIndex((x) => x.id === c.id);
         const removedScores = {};
         for (const optId in d.scores) {
@@ -628,15 +666,17 @@
 
   function renderOptions(d) {
     el.options.innerHTML = "";
+    const locked = d.decided;
     for (const o of d.options) {
       const li = document.createElement("li");
       li.className = "chip";
       li.innerHTML = `
-        <button class="chip-handle" aria-label="Reorder ${escapeHtml(o.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
+        <button class="chip-handle" aria-label="Reorder ${escapeHtml(o.name)}" title="Drag to reorder, or focus and use arrow keys"${locked ? " disabled" : ""}>${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(o.name)}">${escapeHtml(o.name)}</span>
-        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(o.name)}">${icon("x")}</button>`;
-      makeReorderable(li, li.querySelector(".chip-handle"), d, "options", o.id, el.options);
+        <button class="remove" title="Remove" aria-label="Remove ${escapeHtml(o.name)}"${locked ? " disabled" : ""}>${icon("x")}</button>`;
+      if (!locked) makeReorderable(li, li.querySelector(".chip-handle"), d, "options", o.id, el.options);
       li.querySelector(".remove").addEventListener("click", () => {
+        if (active()?.decided) return;
         const idx = d.options.findIndex((x) => x.id === o.id);
         const removedScores = d.scores[o.id];
         d.options = d.options.filter((x) => x.id !== o.id);
@@ -707,7 +747,7 @@
         const bg = Number.isFinite(v) ? ` style="background:${heatColor(v)}"` : "";
         html += `<td class="score-cell${failed ? " db-failed" : ""}"><input type="number" min="0" max="10" step="1"
           data-opt="${o.id}" data-crit="${c.id}" data-r="${ri}" data-c="${ci}"
-          aria-label="${escapeHtml(o.name)} — ${escapeHtml(c.name)}" value="${val}" placeholder="0"${bg} /></td>`;
+          aria-label="${escapeHtml(o.name)} — ${escapeHtml(c.name)}" value="${val}" placeholder="0"${bg}${d.decided ? " disabled" : ""} /></td>`;
       });
       const norm = normById.get(o.id) || 0;
       html += `<td class="total-cell">${norm.toFixed(1)}</td></tr>`;
@@ -718,6 +758,7 @@
     // Wire score inputs
     el.matrix.querySelectorAll("input").forEach((input) => {
       input.addEventListener("input", () => {
+        if (active()?.decided) return;
         const optId = input.dataset.opt;
         const critId = input.dataset.crit;
         let n = parseInt(input.value, 10);
@@ -952,7 +993,7 @@
     el.banner.innerHTML = `
       <span class="rb-emoji">${margin !== null && margin < 0.3 ? icon("scale") : icon("award")}</span>
       <div class="rb-text">
-        <h3>Leaning toward</h3>
+        <h3>${d.decided ? "Decided" : "Leaning toward"}</h3>
         <div class="rb-winner">${escapeHtml(winner.opt.name)}</div>
         <div class="rb-sub">${sub}</div>
         ${gutLine}
@@ -1060,6 +1101,10 @@
     copy.id = uid();
     copy.title = (d.title || "Untitled decision") + " (copy)";
     copy.gut = null;
+    // A duplicate is always a fresh, editable draft — even copying a
+    // decided decision to explore a "what if" shouldn't touch the locked original.
+    copy.decided = false;
+    copy.decidedAt = null;
     copy.createdAt = Date.now();
     copy.updatedAt = Date.now();
     state.decisions.push(copy);
@@ -1337,7 +1382,7 @@
 
   el.title.addEventListener("input", () => {
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     d.title = el.title.value;
     save();
     renderSidebar();
@@ -1346,16 +1391,55 @@
   el.duplicateBtn.addEventListener("click", duplicateDecision);
   el.shareBtn.addEventListener("click", shareDecision);
 
+  el.decideBtn.addEventListener("click", () => {
+    const d = active();
+    if (!d || d.decided) return;
+    d.decided = true;
+    d.decidedAt = Date.now();
+    save();
+    render();
+    announce(`${d.title || "This decision"} marked as decided.`);
+    toast("Decided. Scores and notes are now locked.", {
+      label: "Undo",
+      fn: () => {
+        d.decided = false;
+        d.decidedAt = null;
+        save();
+        render();
+      },
+    });
+  });
+
+  el.reopenBtn.addEventListener("click", () => {
+    const d = active();
+    if (!d || !d.decided) return;
+    const prevDecidedAt = d.decidedAt;
+    d.decided = false;
+    d.decidedAt = null;
+    save();
+    render();
+    announce(`${d.title || "This decision"} reopened for editing.`);
+    toast("Reopened for editing.", {
+      label: "Undo",
+      fn: () => {
+        d.decided = true;
+        d.decidedAt = prevDecidedAt;
+        save();
+        render();
+      },
+    });
+  });
+
   el.notes.addEventListener("input", () => {
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     d.notes = el.notes.value;
     save();
   });
 
   el.gutSelect.addEventListener("change", () => {
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     d.gut = el.gutSelect.value || null;
     save();
     renderBanner(d);
@@ -1372,7 +1456,7 @@
 
   el.resetScores.addEventListener("click", () => {
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     const hasAny = Object.values(d.scores).some((row) => Object.values(row || {}).some((v) => Number.isFinite(v)));
     if (!hasAny) {
       toast("There are no scores to reset.");
@@ -1415,7 +1499,7 @@
   el.critForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     const name = el.critInput.value.trim();
     if (!name) return;
     d.criteria.push({ id: uid(), name, weight: 5, dealbreaker: false });
@@ -1427,7 +1511,7 @@
   el.optForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const d = active();
-    if (!d) return;
+    if (!d || d.decided) return;
     const name = el.optInput.value.trim();
     if (!name) return;
     d.options.push({ id: uid(), name });

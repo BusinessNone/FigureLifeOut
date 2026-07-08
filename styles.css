@@ -182,6 +182,8 @@ body {
 .decision-list li .li-time { font-size: 0.6875rem; line-height: 1rem; color: var(--c360-text-disabled); }
 .decision-list li .li-lead { color: var(--c360-accent); display: inline-flex; flex-shrink: 0; align-self: center; }
 .decision-list li .li-lead .icon { width: 14px; height: 14px; }
+.decision-list li .li-decided { color: var(--c360-success); display: inline-flex; flex-shrink: 0; align-self: center; }
+.decision-list li .li-decided .icon { width: 14px; height: 14px; }
 .sidebar-foot { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--c360-border); }
 
 /* ---------- Workspace ---------- */
@@ -217,7 +219,16 @@ body {
   border-bottom: 2px solid transparent;
 }
 .title-input:focus { outline: none; border-bottom-color: var(--c360-accent); }
+.title-input:read-only:focus { border-bottom-color: transparent; }
 .title-input::placeholder { color: var(--c360-text-disabled); }
+
+.decided-badge {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  font-size: 0.75rem; font-weight: 600; color: var(--c360-success);
+  background: var(--c360-success-subtle); border-radius: var(--c360-radius-sm);
+  padding: 4px 10px; margin: -8px 0 16px;
+}
+.decided-badge .icon { width: 14px; height: 14px; }
 
 /* ---------- Result banner ---------- */
 .result-banner {
@@ -351,6 +362,7 @@ body {
   border-radius: var(--c360-radius-sm); background: var(--c360-bg-sunken); color: var(--c360-text-primary);
 }
 .notes-input:focus { outline: none; border-color: var(--c360-accent); }
+.notes-input:read-only:focus { border-color: var(--c360-border); }
 .notes-input::placeholder { color: var(--c360-text-disabled); }
 
 /* ---------- Panels / cards ---------- */
@@ -411,6 +423,14 @@ kbd {
 }
 .chip .remove .icon { width: 15px; height: 15px; }
 .chip .remove:hover { color: var(--c360-danger); background: var(--c360-danger-subtle); }
+
+/* Locked (decided) state: controls stay visible for context but read as inert. */
+.chip .chip-handle:disabled, .chip .dealbreaker-toggle:disabled, .chip .remove:disabled {
+  opacity: .4; cursor: default; pointer-events: none;
+}
+.chip input[type="range"]:disabled { opacity: .5; cursor: default; }
+.matrix .score-cell input:disabled { opacity: .75; cursor: default; background: var(--c360-bg-sunken); }
+#gut-select:disabled { opacity: .6; cursor: default; }
 
 .add-row { display: flex; gap: 8px; }
 .add-row input {
@@ -595,4 +615,34 @@ kbd {
   .btn-sm { min-height: 40px; }
   .matrix .score-cell input { min-height: 40px; }
   .toast-action { min-height: 40px; padding: 0 8px; }
+}
+
+/* ---------- Print — a clean record of a decision, not a UI screenshot ---------- */
+@media print {
+  /* Force the light token set regardless of theme — printed paper has no
+     dark mode, and re-defining the tokens (rather than hand-overriding
+     every component) keeps every color correct through the same cascade
+     the screen styles already use. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --c360-accent: #007BA7; --c360-accent-subtle: #E8F4F9;
+    --c360-bg-canvas: #FFFFFF; --c360-bg-surface: #FFFFFF; --c360-bg-sunken: #F4F6F7;
+    --c360-border: #D3DADD; --c360-border-strong: #A4B0B5;
+    --c360-text-primary: #1B1B1A; --c360-text-secondary: #5C5C58; --c360-text-disabled: #9EA6A9;
+    --c360-success: #107C10; --c360-success-subtle: #E6F2E6;
+    --c360-warning: #B85C00; --c360-warning-subtle: #FCF0E4;
+    --c360-danger: #C42B1C; --c360-danger-subtle: #FBEAE8;
+  }
+  .app-header, .sidebar, .app-footer, .toast, .modal-backdrop,
+  #decide-btn, #reopen-btn, #share-decision, #duplicate-decision, #delete-decision,
+  #criterion-form, #option-form, .chip-handle, .chip .remove, .dealbreaker-toggle,
+  .matrix-tools, .decision-list, kbd {
+    display: none !important;
+  }
+  .layout { display: block; }
+  .workspace { padding: 0; max-width: none; }
+  .panel, .result-banner, .decided-badge { box-shadow: none; break-inside: avoid; }
+  .matrix-scroll { overflow: visible; }
+  .insight-wrap { display: block; }
+  .insight-wrap .panel { margin-bottom: 12px; }
+  .chip input[type="range"] { display: none; }
 }

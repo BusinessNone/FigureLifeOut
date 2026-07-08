@@ -137,6 +137,106 @@ test("scoring computes a weighted result and reweighting flips the winner", asyn
   await page.waitForFunction(() => /Denver is now leading/.test(document.querySelector("#live")?.textContent || ""));
 });
 
+test("Decide locks every editing surface and shows the decided badge", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#decide-btn");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+
+  assert.ok(await page.$("#decide-btn[hidden]"), "Decide button should hide");
+  assert.match(await page.textContent("#decided-badge-text"), /^Decided /);
+  assert.equal(await page.textContent(".result-banner h3"), "Decided");
+
+  // Every editing surface is locked.
+  assert.equal(await page.$eval("#decision-title", (el) => el.readOnly), true);
+  assert.equal(await page.$eval("#notes-input", (el) => el.readOnly), true);
+  assert.equal(await page.$eval("#gut-select", (el) => el.disabled), true);
+  assert.equal(await page.$eval(".score-cell input", (el) => el.disabled), true);
+  assert.equal(await page.$eval(".chip input[type=range]", (el) => el.disabled), true);
+  assert.equal(await page.$eval(".chip .remove", (el) => el.disabled), true);
+  assert.equal(await page.$eval(".chip .dealbreaker-toggle", (el) => el.disabled), true);
+  assert.ok(await page.$("#criterion-form[hidden]"), "add-criterion form should hide");
+  assert.ok(await page.$("#option-form[hidden]"), "add-option form should hide");
+  assert.ok(await page.$("#reset-scores[hidden]"), "reset-scores should hide once decided");
+
+  // Locking is not just cosmetic: a direct attempt to mutate must no-op.
+  const before = await page.inputValue("#decision-title");
+  await page.evaluate(() => {
+    const t = document.querySelector("#decision-title");
+    t.readOnly = false; t.value = "tampered";
+    t.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForTimeout(100);
+  const stateTitle = await page.evaluate(() => JSON.parse(localStorage.getItem("figurelifeout.v1")).decisions[0].title);
+  assert.equal(stateTitle, before, "title must not persist a change made after forcibly re-enabling the input");
+});
+
+test("Reopen unlocks a decided decision, and both actions are undoable", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#decide-btn");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+
+  // Undo on the "Decided" toast reopens it.
+  await page.click(".toast-action");
+  await page.waitForSelector("#decide-btn:not([hidden])");
+  assert.equal(await page.$eval("#decision-title", (el) => el.readOnly), false);
+
+  // Decide again, then use the persistent Reopen button.
+  await page.click("#decide-btn");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+  await page.click("#reopen-btn");
+  await page.waitForSelector("#decide-btn:not([hidden])");
+  assert.ok(await page.$("#decided-badge[hidden]"), "decided badge should hide once reopened");
+  assert.equal(await page.$eval(".score-cell input", (el) => el.disabled), false, "scores should be editable again");
+
+  // Undo on the "Reopened" toast re-decides it.
+  await page.click(".toast-action");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+  assert.match(await page.textContent("#decided-badge-text"), /^Decided /);
+});
+
+test("Duplicating a decided decision produces a fresh, editable draft", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#decide-btn");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+  await page.click("#duplicate-decision");
+  await page.waitForFunction(() => /\(copy\)/.test(document.querySelector("#decision-title")?.value || ""));
+
+  assert.ok(await page.$("#decide-btn:not([hidden])"), "the duplicate should not be decided");
+  assert.equal(await page.$eval(".score-cell input", (el) => el.disabled), false, "the duplicate's scores should be editable");
+});
+
+test("decided state persists across reload and never travels through a share link", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#decide-btn");
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+  await page.reload();
+  await page.waitForSelector("#reopen-btn:not([hidden])");
+  assert.match(await page.textContent("#decided-badge-text"), /^Decided /);
+
+  // Sidebar shows a decided indicator.
+  assert.ok(await page.$("#decision-list .li-decided"), "sidebar should badge the decided decision");
+
+  // Share links always import as an editable draft, even from a decided source.
+  const ctx2 = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const page2 = await ctx2.newPage();
+  t.after(() => ctx2.close());
+  await page2.goto(base + "/");
+  await page2.waitForSelector("#decision-editor:not([hidden])");
+  await page2.click("#decide-btn");
+  await page2.waitForSelector("#reopen-btn:not([hidden])");
+  await page2.click("#share-decision");
+  await page2.waitForSelector("#toast:not([hidden])");
+  const url = await page2.evaluate(() => navigator.clipboard.readText());
+
+  const recipientCtx = await browser.newContext();
+  const recipient = await recipientCtx.newPage();
+  t.after(() => recipientCtx.close());
+  await recipient.goto(url);
+  await recipient.waitForSelector("#decision-editor:not([hidden])");
+  await recipient.waitForFunction(() => /\(shared\)/.test(document.querySelector("#decision-title")?.value || ""));
+  assert.ok(await recipient.$("#decide-btn:not([hidden])"), "a shared decision must always arrive as an editable draft");
+});
+
 test("dealbreaker: sort-by-score never ranks a disqualified option above a qualifying one", async (t) => {
   const page = await freshPage(t);
   await page.click("#new-decision");

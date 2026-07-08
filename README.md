@@ -50,6 +50,12 @@ explicit low score does.
 ## Features
 
 - ⚖️ Weighted criteria with live-updating results
+- 🔒 **Decide** — lock in a decision once you've made it. Scores, weights, criteria,
+  options, and notes all freeze; the banner switches from "Leaning toward" to "Decided,"
+  stamped with the date. **Reopen** unlocks it again, undoably, and duplicating a decided
+  decision always starts a fresh, editable draft — the locked original is never touched.
+  Print a decided decision for a clean, one-page record of the winner, the margin, the
+  reasoning, and your notes, with all editing chrome stripped out.
 - 🚫 **Dealbreakers** — mark a criterion as a hard requirement; options that fail it are
   disqualified outright, not just averaged down (see above)
 - 📊 Results chart — a weighted bar ranking so the standing reads at a glance
@@ -113,8 +119,8 @@ dev-only dependency used for testing. Open `index.html`, or serve the folder wit
 ## Testing
 
 End-to-end tests drive a real headless browser and cover scoring, dealbreaker
-disqualification, the insight engine, sensitivity analysis, the gut check, keyboard
-navigation, shareable links, persistence, and offline PWA behavior.
+disqualification, deciding/reopening a decision, the insight engine, sensitivity analysis,
+the gut check, keyboard navigation, shareable links, persistence, and offline PWA behavior.
 
 ```bash
 npm install          # dev dependencies: ESLint, Playwright
