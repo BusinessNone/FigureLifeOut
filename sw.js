@@ -1,6 +1,6 @@
 /* FigureLifeOut service worker — offline app shell, cache-first.
  * Bump CACHE when any shell asset changes to force an update. */
-const CACHE = "flo-v2";
+const CACHE = "flo-v3";
 const ASSETS = [
   "./",
   "index.html",
