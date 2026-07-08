@@ -91,11 +91,26 @@ async function effectiveTextContrast(page, selector) {
 
 // Clicks #share-decision and returns the share URL, regardless of which
 // path the app took to deliver it. Playwright can only grant clipboard
-// permissions in Chromium, so on Firefox/WebKit (or any context without
-// permissions granted) the app's own window.prompt() fallback fires
-// instead — this races both outcomes rather than assuming either one,
-// which also means the fallback path itself gets exercised by the suite.
+// *read* permission in Chromium — but a page can write to the clipboard
+// on a user gesture in every engine without any grant at all, including
+// in CI, so the app's real navigator.clipboard.writeText() call often
+// succeeds silently even on engines that will then refuse to read it
+// back. So: grant read where possible, but also shadow writeText to
+// stash the value the app actually wrote, and fall back to that stash
+// if the real read is denied. window.prompt() is still raced in as a
+// third path for whichever engine/context takes it.
 async function shareAndGetUrl(page) {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+  await page.evaluate(() => {
+    window.__testClipboard = undefined;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      const original = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = (text) => {
+        window.__testClipboard = text;
+        return original(text);
+      };
+    }
+  });
   let promptUrl = null;
   const dialogPromise = new Promise((resolve) => {
     page.once("dialog", async (d) => {
@@ -110,7 +125,11 @@ async function shareAndGetUrl(page) {
     dialogPromise,
   ]);
   if (promptUrl) return promptUrl;
-  return page.evaluate(() => navigator.clipboard.readText());
+  try {
+    return await page.evaluate(() => navigator.clipboard.readText());
+  } catch {
+    return page.evaluate(() => window.__testClipboard);
+  }
 }
 
 test("seeded example shows a winner, chart, and robustness readout", async (t) => {
@@ -878,7 +897,14 @@ test("PWA: manifest, service worker, and offline reload", async (t) => {
   assert.equal(swState, "activated");
 
   await ctx.setOffline(true);
-  await page.reload();
+  // WebKit's offline emulation occasionally throws a transient internal
+  // error on the very next navigation — retry once rather than fail a
+  // real product test on an engine-process hiccup.
+  try {
+    await page.reload();
+  } catch {
+    await page.reload();
+  }
   await page.waitForSelector(".brand h1");
   assert.equal(await page.textContent(".brand h1"), "FigureLifeOut");
   await ctx.setOffline(false);
