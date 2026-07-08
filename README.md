@@ -153,6 +153,10 @@ then publishes to `https://<user>.github.io/<repo>/` and is installable from the
 A `.nojekyll` file is included so files are always served verbatim, even if Pages is ever
 switched to the "Deploy from a branch" source.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE) — free to use, modify, and distribute.
