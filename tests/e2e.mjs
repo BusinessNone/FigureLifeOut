@@ -9,10 +9,13 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { chromium, firefox, webkit } from "playwright";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, cp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { start } from "../scripts/serve.mjs";
+
+const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 const ENGINES = { chromium, firefox, webkit };
 const engineName = process.env.BROWSER || "chromium";
@@ -642,6 +645,34 @@ test("coverage ring gauge tracks how much of the matrix is scored", async (t) =>
   assert.ok(await page.evaluate(() => document.querySelector("#coverage").classList.contains("full")), "100% should get the 'full' class");
 });
 
+test("a large 20x20 matrix builds, scores, and persists without breaking layout", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  for (let i = 0; i < 20; i++) await addCriterion(page, `Criterion ${i + 1}`);
+  for (let i = 0; i < 20; i++) await addOption(page, `Option ${i + 1}`);
+
+  const cells = await page.$$(".matrix .score-cell input");
+  assert.equal(cells.length, 400, "20 criteria x 20 options should render 400 score cells");
+  for (let i = 0; i < cells.length; i++) await cells[i].fill(String((i % 10) + 1));
+
+  assert.equal(await page.$$eval(".bar-row", (els) => els.length), 20, "chart should render a bar per option");
+
+  const overflowsPage = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 5);
+  assert.ok(!overflowsPage, "a wide matrix must not cause page-level horizontal scroll");
+  const matrixScrolls = await page.evaluate(() => {
+    const el = document.querySelector(".matrix-scroll");
+    return el.scrollWidth > el.clientWidth;
+  });
+  assert.ok(matrixScrolls, "the matrix itself should scroll internally instead");
+
+  await page.reload();
+  await page.waitForSelector("#decision-editor:not([hidden])");
+  assert.equal(await page.$$eval("#criteria-list .chip", (els) => els.length), 20);
+  assert.equal(await page.$$eval("#options-list .chip", (els) => els.length), 20);
+  assert.equal(await page.$$eval(".matrix .score-cell input", (els) => els.length), 400);
+});
+
 test("criteria reorder by keyboard, update the matrix, and persist", async (t) => {
   const page = await freshPage(t);
   const before = await page.$$eval("#criteria-list .chip-name", (els) => els.map((e) => e.textContent));
@@ -907,6 +938,77 @@ test("PWA: manifest, service worker, and offline reload", async (t) => {
     await page.reload();
     await page.waitForSelector(".brand h1");
     assert.equal(await page.textContent(".brand h1"), "FigureLifeOut");
+    await ctx.setOffline(false);
+  }
+});
+
+// Serves the site from a scratch copy so the test can edit sw.js and
+// index.html on disk to simulate a real deploy, without touching the repo.
+test("service worker update: a bumped cache version replaces stale content and deletes the old cache", { timeout: 20_000 }, async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "flo-sw-update-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  for (const f of [
+    "index.html", "styles.css", "app.js", "manifest.webmanifest", "sw.js",
+    "icon.svg", "icon-192.png", "icon-512.png", "icon-512-maskable.png", "apple-touch-icon.png",
+  ]) {
+    await cp(join(REPO_ROOT, f), join(dir, f));
+  }
+
+  const localServer = await start(0, dir);
+  const localBase = `http://localhost:${localServer.address().port}`;
+  t.after(() => new Promise((res) => localServer.close(res)));
+
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  t.after(() => ctx.close());
+
+  await page.goto(localBase + "/");
+  await page.waitForSelector("#decision-editor:not([hidden])");
+  await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const w = reg.active;
+    if (w.state !== "activated") {
+      await new Promise((res) => w.addEventListener("statechange", () => w.state === "activated" && res()));
+    }
+  });
+  const cachesAfterFirstInstall = await page.evaluate(() => caches.keys());
+  assert.equal(cachesAfterFirstInstall.length, 1, "exactly one cache should exist after the first install");
+  const [oldCacheName] = cachesAfterFirstInstall;
+
+  // Simulate a deploy: bump the cache version and change visible content,
+  // exactly as a real update would.
+  const swSrc = await readFile(join(dir, "sw.js"), "utf8");
+  assert.match(swSrc, /const CACHE = "flo-v\d+"/, "test assumes the existing versioned-cache-name pattern");
+  const newSwSrc = swSrc.replace(/const CACHE = "flo-v\d+"/, 'const CACHE = "flo-v-test-updated"');
+  assert.notEqual(newSwSrc, swSrc);
+  await writeFile(join(dir, "sw.js"), newSwSrc);
+  const htmlSrc = await readFile(join(dir, "index.html"), "utf8");
+  await writeFile(join(dir, "index.html"), htmlSrc.replace("Turn a hard choice into a clear one.", "UPDATED TAGLINE"));
+
+  // Force an update check now that sw.js has changed on disk, and wait
+  // for the resulting worker to install, activate, and claim this page —
+  // all inside one evaluate() so arming the listener can't race the
+  // update call across a Node/browser round-trip.
+  await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const claimed = new Promise((res) => navigator.serviceWorker.addEventListener("controllerchange", res, { once: true }));
+    await reg.update();
+    await claimed;
+  });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector(".tagline")?.textContent === "UPDATED TAGLINE");
+
+  const cachesAfterUpdate = await page.evaluate(() => caches.keys());
+  assert.deepEqual(cachesAfterUpdate, ["flo-v-test-updated"], "the old cache must be deleted, not just superseded");
+  assert.ok(!cachesAfterUpdate.includes(oldCacheName), "stale cache must not linger");
+
+  // Confirm the new content actually survives offline too — i.e. it was
+  // re-cached under the new name, not just served live over the network.
+  if (engineName !== "webkit") {
+    await ctx.setOffline(true);
+    await page.reload();
+    await page.waitForSelector(".tagline");
+    assert.equal(await page.textContent(".tagline"), "UPDATED TAGLINE");
     await ctx.setOffline(false);
   }
 });
