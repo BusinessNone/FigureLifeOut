@@ -14,6 +14,11 @@ It's also an installable **Progressive Web App**: served over HTTPS (e.g. GitHub
 you can add it to your phone or desktop home screen and it works fully offline, like a
 native app — still with zero data leaving your device.
 
+<p align="center">
+  <img src="screenshots/light.png" alt="FigureLifeOut showing a job-offer decision, light theme: the weighted result banner, results chart, insight engine, and criteria/options editor" width="49%" />
+  <img src="screenshots/dark.png" alt="The same decision in dark theme" width="49%" />
+</p>
+
 ## How it works
 
 1. **Name what matters.** Add the criteria that drive the decision (salary, commute,
