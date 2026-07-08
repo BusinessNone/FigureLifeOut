@@ -280,7 +280,7 @@ body {
 .bar-row.leader .bl-name { font-weight: 600; }
 .bar-row.leader .bl-val { color: var(--c360-accent); }
 .bar-row.disqualified .bar-fill { background: var(--c360-border-strong); opacity: .5; }
-.bar-row.disqualified .bl-name { color: var(--c360-text-disabled); text-decoration: line-through; }
+.bar-row.disqualified .bl-name { color: var(--c360-text-secondary); text-decoration: line-through; }
 .bar-dq-badge {
   display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
   font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
@@ -458,7 +458,7 @@ kbd {
 .matrix .score-cell.db-failed input { border-color: var(--c360-danger); border-width: 2px; }
 .matrix .total-cell { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .matrix tbody tr.leader th, .matrix tbody tr.leader .total-cell { color: var(--c360-accent); }
-.matrix tbody tr.disqualified th, .matrix tbody tr.disqualified .total-cell { color: var(--c360-text-disabled); }
+.matrix tbody tr.disqualified th, .matrix tbody tr.disqualified .total-cell { color: var(--c360-text-secondary); }
 .matrix tbody tr.disqualified .score-cell:not(.db-failed) input { opacity: .6; }
 .row-db-badge {
   display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;

@@ -52,6 +52,37 @@ async function addOption(page, name) {
   await page.click("#option-form button");
 }
 
+// WCAG relative-luminance contrast ratio between two "rgb(r, g, b)" strings.
+function contrastRatio(rgbA, rgbB) {
+  const toRgb = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
+  const relLum = ([r, g, b]) => {
+    const [rs, gs, bs] = [r, g, b].map((c) => {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  };
+  const [l1, l2] = [relLum(toRgb(rgbA)), relLum(toRgb(rgbB))].sort((a, b) => b - a);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+
+// Resolve an element's actual text color against its nearest opaque ancestor
+// background (colors can be transparent, so walk up until one isn't).
+async function effectiveTextContrast(page, selector) {
+  const { color, bg } = await page.$eval(selector, (el) => {
+    const color = getComputedStyle(el).color;
+    let node = el;
+    let bg = "rgba(0, 0, 0, 0)";
+    while (node) {
+      const c = getComputedStyle(node).backgroundColor;
+      if (c && !/rgba?\([^)]*,\s*0\s*\)/.test(c)) { bg = c; break; }
+      node = node.parentElement;
+    }
+    return { color, bg };
+  });
+  return contrastRatio(color, bg);
+}
+
 test("seeded example shows a winner, chart, and robustness readout", async (t) => {
   const page = await freshPage(t);
   assert.equal(await page.textContent(".rb-winner"), "Take the offer");
@@ -142,6 +173,21 @@ test("dealbreaker: sort-by-score never ranks a disqualified option above a quali
   assert.match(firstRowName, /QualifiesLower/);
   const firstRowDisqualified = await page.$eval(".matrix tbody tr:first-child", (el) => el.classList.contains("disqualified"));
   assert.equal(firstRowDisqualified, false, "the top row after sorting must not be the disqualified option");
+});
+
+test("dealbreaker: disqualified text meets WCAG AA body-text contrast in both themes", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#criteria-list .chip .dealbreaker-toggle"); // Salary
+  await page.fill('input[data-r="0"][data-c="0"]', "1"); // disqualify Take the offer
+  await page.waitForFunction(() => document.querySelector(".matrix tbody tr.disqualified") !== null);
+
+  for (const theme of ["light", "dark"]) {
+    if (theme === "dark") await page.click("#theme-toggle");
+    const chartRatio = await effectiveTextContrast(page, ".bar-row.disqualified .bl-name");
+    const matrixRatio = await effectiveTextContrast(page, ".matrix tbody tr.disqualified th");
+    assert.ok(chartRatio >= 4.5, `chart disqualified name should meet 4.5:1 in ${theme}, got ${chartRatio.toFixed(2)}`);
+    assert.ok(matrixRatio >= 4.5, `matrix disqualified name should meet 4.5:1 in ${theme}, got ${matrixRatio.toFixed(2)}`);
+  }
 });
 
 test("dealbreaker: a low score disqualifies an option even if it would otherwise win", async (t) => {
