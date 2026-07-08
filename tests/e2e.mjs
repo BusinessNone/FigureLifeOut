@@ -613,8 +613,11 @@ test("criteria reorder by keyboard, update the matrix, and persist", async (t) =
   // Matrix column order reflects the new criteria order.
   const cols = await page.$$eval("#matrix thead th.crit-head", (els) => els.map((e) => e.childNodes[0].textContent.trim()));
   assert.equal(cols[0], before[1]);
-  // A screen-reader announcement was made for the move.
-  assert.match(await page.textContent("#live"), /moved to position 2 of 4/);
+  // A screen-reader announcement was made for the move. announce() clears
+  // the live region and sets the real text on the next animation frame (so
+  // repeated identical messages still get re-announced), so a synchronous
+  // read can race that frame — poll instead of snapshotting immediately.
+  await page.waitForFunction(() => /moved to position 2 of 4/.test(document.querySelector("#live")?.textContent || ""));
   // Persists across reload.
   await page.reload();
   await page.waitForSelector("#criteria-list .chip-name");
