@@ -1,24 +1,30 @@
 // End-to-end tests for FigureLifeOut, using the Playwright browser library
 // and Node's built-in test runner. No test framework dependency.
 //
-//   npm test        (installs Playwright, then runs this)
+//   npm test                   (installs Playwright, then runs against Chromium)
+//   BROWSER=firefox npm test   (or webkit — runs the same suite on that engine)
 //   node --test tests/
 //
 // A fresh browser context per test isolates localStorage between cases.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { chromium, firefox, webkit } from "playwright";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { start } from "../scripts/serve.mjs";
+
+const ENGINES = { chromium, firefox, webkit };
+const engineName = process.env.BROWSER || "chromium";
+const engine = ENGINES[engineName];
+if (!engine) throw new Error(`Unknown BROWSER "${engineName}" — expected chromium, firefox, or webkit`);
 
 let server, browser, base;
 
 before(async () => {
   server = await start(0);
   base = `http://localhost:${server.address().port}`;
-  browser = await chromium.launch();
+  browser = await engine.launch();
 });
 
 after(async () => {

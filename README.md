@@ -126,11 +126,15 @@ the gut check, keyboard navigation, shareable links, persistence, and offline PW
 npm install          # dev dependencies: ESLint, Playwright
 npx playwright install chromium
 npm run lint         # ESLint (flat config)
-npm test             # runs tests/e2e.mjs against a local static server
+npm test             # runs tests/e2e.mjs against a local static server (Chromium by default)
+
+# Run the same suite against another engine:
+npx playwright install firefox   # or webkit
+BROWSER=firefox npm test
 ```
 
-CI runs lint and the full test suite on every push and pull request
-(`.github/workflows/ci.yml`).
+CI runs lint once, then the full test suite across Chromium, Firefox, and WebKit on every
+push and pull request (`.github/workflows/ci.yml`).
 
 ## Deploying
 
