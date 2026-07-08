@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="FigureLifeOut — a weighted decision matrix to help you make big life decisions with clarity." />
+  <!-- Defense-in-depth: the app has no external dependencies and makes no
+       network calls of its own, so this can be strict. script-src has no
+       inline exception — the one script that used to be inline (service
+       worker registration) now lives in app.js. style-src allows inline
+       because two render paths (heatmap cell color, chart bar width) set
+       a style="" attribute with a computed, non-user-controlled value.
+       frame-ancestors isn't included: browsers ignore it when a CSP is
+       delivered via <meta> rather than a real HTTP header, and GitHub
+       Pages doesn't let a static site set custom response headers. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <title>FigureLifeOut — Make big decisions with clarity</title>
 
   <!-- Social previews: without these, a pasted share link (Slack, iMessage,
@@ -214,11 +224,5 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="app.js"></script>
-  <script>
-    // Register the service worker for offline use. No-ops on file:// where SW is unsupported.
-    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-    }
-  </script>
 </body>
 </html>

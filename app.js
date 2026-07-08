@@ -1573,5 +1573,12 @@
     if (!active() && state.decisions.length) state.activeId = state.decisions[0].id;
     render();
     if (imported) toast("Imported a shared decision as a copy.");
+
+    // Registration lives here rather than an inline <script> in index.html
+    // so the CSP's script-src can stay 'self' with no inline exception.
+    // No-ops on file:// where service workers are unsupported.
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    }
   })();
 })();
