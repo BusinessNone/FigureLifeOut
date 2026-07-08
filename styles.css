@@ -169,8 +169,12 @@ body {
 }
 .decision-list li:hover { background: var(--c360-bg-sunken); color: var(--c360-text-primary); }
 .decision-list li.active {
+  /* Per C360 spec, accent text on accent-subtle (4.27:1) is for large text
+     and icons only, never body copy — the title here is body-sized, so the
+     active state is carried by the background tint, the left accent bar,
+     and weight alone, not a text-color change. */
   background: var(--c360-accent-subtle);
-  color: var(--c360-accent);
+  color: var(--c360-text-primary);
   font-weight: 600;
 }
 .decision-list li.active::before {
@@ -179,7 +183,7 @@ body {
 }
 .decision-list li .li-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .decision-list li .li-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.decision-list li .li-time { font-size: 0.6875rem; line-height: 1rem; color: var(--c360-text-disabled); }
+.decision-list li .li-time { font-size: 0.6875rem; line-height: 1rem; color: var(--c360-text-secondary); }
 .decision-list li .li-lead { color: var(--c360-accent); display: inline-flex; flex-shrink: 0; align-self: center; }
 .decision-list li .li-lead .icon { width: 14px; height: 14px; }
 .decision-list li .li-decided { color: var(--c360-success); display: inline-flex; flex-shrink: 0; align-self: center; }
@@ -315,7 +319,7 @@ body {
 .insight.info { border-left-color: var(--c360-accent); }
 .insight.info .ins-icon { color: var(--c360-accent); }
 .insight strong { font-weight: 600; }
-.insights-empty { color: var(--c360-text-disabled); font-size: 0.875rem; padding: 6px 0; }
+.insights-empty { color: var(--c360-text-secondary); font-size: 0.875rem; padding: 6px 0; }
 
 /* Ring gauge — the C360 brand signature. Encodes scoring completeness only. */
 .ring-gauge {
@@ -375,7 +379,7 @@ body {
 }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
 .panel-head h3 { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
-.hint { font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-disabled); }
+.hint { font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-secondary); }
 kbd {
   font-family: var(--c360-font-mono); font-size: 0.6875rem; font-weight: 600;
   background: var(--c360-bg-sunken); border: 1px solid var(--c360-border);
@@ -413,9 +417,12 @@ kbd {
 .chip .weight-control { display: flex; align-items: center; gap: 8px; }
 .chip input[type="range"] { width: 88px; accent-color: var(--c360-accent); cursor: pointer; }
 .chip .weight-val {
-  font-family: var(--c360-font-mono); font-size: 0.75rem; font-weight: 600; color: var(--c360-accent);
+  /* Solid accent fill + on-accent text, not accent-on-accent-subtle
+     (4.27:1) — that pairing is for large text/icons only per spec, and
+     this badge's digits are small caption-sized text. */
+  font-family: var(--c360-font-mono); font-size: 0.75rem; font-weight: 600; color: var(--c360-text-on-accent);
   min-width: 24px; text-align: center; font-variant-numeric: tabular-nums;
-  background: var(--c360-accent-subtle); border-radius: var(--c360-radius-sm); padding: 2px 4px;
+  background: var(--c360-accent); border-radius: var(--c360-radius-sm); padding: 2px 4px;
 }
 .chip .remove {
   background: none; border: none; cursor: pointer; color: var(--c360-text-disabled);
@@ -454,7 +461,7 @@ kbd {
   font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-secondary); font-weight: 600; text-align: center;
 }
 .matrix thead th.crit-head { min-width: 96px; }
-.matrix thead th.crit-head .cw { display: block; font-family: var(--c360-font-mono); font-size: 0.6875rem; color: var(--c360-text-disabled); font-weight: 400; }
+.matrix thead th.crit-head .cw { display: block; font-family: var(--c360-font-mono); font-size: 0.6875rem; color: var(--c360-text-secondary); font-weight: 400; }
 .matrix thead th.crit-head.dealbreaker { color: var(--c360-danger); }
 .matrix thead th.crit-head .th-db { color: var(--c360-danger); display: inline-flex; vertical-align: middle; margin-right: 3px; }
 .matrix thead th.crit-head .th-db .icon { width: 13px; height: 13px; }
@@ -488,7 +495,7 @@ kbd {
 }
 .row-db-badge .icon { width: 12px; height: 12px; }
 .matrix .total-head { font-size: 0.75rem; color: var(--c360-text-secondary); text-align: right; }
-.matrix-empty { color: var(--c360-text-disabled); font-size: 0.875rem; text-align: center; padding: 20px 0; }
+.matrix-empty { color: var(--c360-text-secondary); font-size: 0.875rem; text-align: center; padding: 20px 0; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -523,7 +530,7 @@ kbd {
 /* ---------- Footer ---------- */
 .app-footer {
   padding: 12px 24px; text-align: center;
-  font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-disabled);
+  font-size: 0.75rem; line-height: 1rem; color: var(--c360-text-secondary);
   border-top: 1px solid var(--c360-border);
 }
 
