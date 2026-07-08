@@ -83,6 +83,30 @@ async function effectiveTextContrast(page, selector) {
   return contrastRatio(color, bg);
 }
 
+// Clicks #share-decision and returns the share URL, regardless of which
+// path the app took to deliver it. Playwright can only grant clipboard
+// permissions in Chromium, so on Firefox/WebKit (or any context without
+// permissions granted) the app's own window.prompt() fallback fires
+// instead — this races both outcomes rather than assuming either one,
+// which also means the fallback path itself gets exercised by the suite.
+async function shareAndGetUrl(page) {
+  let promptUrl = null;
+  const dialogPromise = new Promise((resolve) => {
+    page.once("dialog", async (d) => {
+      promptUrl = d.defaultValue();
+      await d.accept();
+      resolve();
+    });
+  });
+  await page.click("#share-decision");
+  await Promise.race([
+    page.waitForSelector("#toast:not([hidden])").catch(() => {}),
+    dialogPromise,
+  ]);
+  if (promptUrl) return promptUrl;
+  return page.evaluate(() => navigator.clipboard.readText());
+}
+
 test("seeded example shows a winner, chart, and robustness readout", async (t) => {
   const page = await freshPage(t);
   assert.equal(await page.textContent(".rb-winner"), "Take the offer");
@@ -217,16 +241,14 @@ test("decided state persists across reload and never travels through a share lin
   assert.ok(await page.$("#decision-list .li-decided"), "sidebar should badge the decided decision");
 
   // Share links always import as an editable draft, even from a decided source.
-  const ctx2 = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const ctx2 = await browser.newContext();
   const page2 = await ctx2.newPage();
   t.after(() => ctx2.close());
   await page2.goto(base + "/");
   await page2.waitForSelector("#decision-editor:not([hidden])");
   await page2.click("#decide-btn");
   await page2.waitForSelector("#reopen-btn:not([hidden])");
-  await page2.click("#share-decision");
-  await page2.waitForSelector("#toast:not([hidden])");
-  const url = await page2.evaluate(() => navigator.clipboard.readText());
+  const url = await shareAndGetUrl(page2);
 
   const recipientCtx = await browser.newContext();
   const recipient = await recipientCtx.newPage();
@@ -365,15 +387,13 @@ test("dealbreaker flag round-trips through JSON export/import and share links", 
   await page.waitForSelector("#criteria-list .chip.dealbreaker");
 
   // Share link preserves it.
-  const ctx2 = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const ctx2 = await browser.newContext();
   const page2 = await ctx2.newPage();
   t.after(() => ctx2.close());
   await page2.goto(base + "/");
   await page2.waitForSelector("#decision-editor:not([hidden])");
   await page2.click("#criteria-list .chip .dealbreaker-toggle");
-  await page2.click("#share-decision");
-  await page2.waitForSelector("#toast:not([hidden])");
-  const url = await page2.evaluate(() => navigator.clipboard.readText());
+  const url = await shareAndGetUrl(page2);
   const recipientCtx = await browser.newContext();
   const recipient = await recipientCtx.newPage();
   t.after(() => recipientCtx.close());
@@ -731,7 +751,7 @@ test("importing a crafted id cannot break out of an HTML attribute", async (t) =
 });
 
 test("share link round-trips a decision and keeps notes private", async (t) => {
-  const ctx = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+  const ctx = await browser.newContext();
   const page = await ctx.newPage();
   t.after(() => ctx.close());
   await page.goto(base + "/");
@@ -739,9 +759,7 @@ test("share link round-trips a decision and keeps notes private", async (t) => {
 
   // Add a private note, then copy the share link.
   await page.fill("#notes-input", "SECRET reflection");
-  await page.click("#share-decision");
-  await page.waitForSelector("#toast:not([hidden])");
-  const url = await page.evaluate(() => navigator.clipboard.readText());
+  const url = await shareAndGetUrl(page);
   assert.match(url, /#d=/, "share URL should contain encoded payload");
   assert.ok(!url.includes("SECRET"), "notes must not be embedded in the link");
 
@@ -807,7 +825,9 @@ test("editor actions stay on-screen on a narrow (mobile) viewport", async (t) =>
 test("touch devices get 40x40px minimum touch targets, still no overflow", async (t) => {
   // pointer:coarse only activates with real touch emulation, not just a
   // narrow viewport — a plain mouse context never exercises this CSS.
-  const ctx = await browser.newContext({ viewport: { width: 375, height: 720 }, hasTouch: true, isMobile: true });
+  // (isMobile is intentionally omitted: Playwright doesn't support it in
+  // Firefox, and pointer:coarse matching is driven by hasTouch, not isMobile.)
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 720 }, hasTouch: true });
   const page = await ctx.newPage();
   t.after(() => ctx.close());
   await page.goto(base + "/");
