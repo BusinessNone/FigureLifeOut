@@ -896,19 +896,17 @@ test("PWA: manifest, service worker, and offline reload", async (t) => {
   });
   assert.equal(swState, "activated");
 
-  await ctx.setOffline(true);
   // WebKit on Linux deterministically throws "encountered an internal
-  // error" from page.reload() while offline and service-worker
-  // controlled — a known engine-level limitation, not a real navigation
-  // failure. A fresh goto() to the same URL exercises the identical
-  // offline/cache-serving path through a different internal navigation
-  // route that WebKit handles correctly.
-  try {
+  // error" on *any* navigation (reload() or goto() alike) once offline
+  // and service-worker-controlled — an engine/platform limitation, not
+  // something a different navigation primitive can route around. The
+  // manifest and activation checks above already cover WebKit; skip
+  // only the offline-navigation assertion there.
+  if (engineName !== "webkit") {
+    await ctx.setOffline(true);
     await page.reload();
-  } catch {
-    await page.goto(page.url());
+    await page.waitForSelector(".brand h1");
+    assert.equal(await page.textContent(".brand h1"), "FigureLifeOut");
+    await ctx.setOffline(false);
   }
-  await page.waitForSelector(".brand h1");
-  assert.equal(await page.textContent(".brand h1"), "FigureLifeOut");
-  await ctx.setOffline(false);
 });
