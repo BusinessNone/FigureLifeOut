@@ -572,7 +572,7 @@
         <button class="chip-handle" aria-label="Reorder ${escapeHtml(c.name)}" title="Drag to reorder, or focus and use arrow keys">${icon("grip-vertical")}</button>
         <span class="chip-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
         <button class="dealbreaker-toggle" aria-pressed="${c.dealbreaker ? "true" : "false"}"
-          title="${c.dealbreaker ? "Dealbreaker — options scoring 2 or below here are disqualified. Click to unmark." : "Mark as a dealbreaker: options scoring 2 or below here get disqualified, however well they score elsewhere."}">
+          title="${c.dealbreaker ? `Dealbreaker — options scoring ${DEALBREAKER_THRESHOLD} or below here are disqualified. Click to unmark.` : `Mark as a dealbreaker: options scoring ${DEALBREAKER_THRESHOLD} or below here get disqualified, however well they score elsewhere.`}">
           ${icon("octagon-alert")}<span class="db-label">Dealbreaker</span>
         </button>
         <span class="weight-control">

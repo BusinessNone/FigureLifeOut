@@ -179,6 +179,25 @@ test("dealbreaker: a blank (unscored) cell never disqualifies", async (t) => {
   assert.ok(!(await page.$(".matrix tbody tr.disqualified")), "no row should be disqualified from a blank cell");
 });
 
+test("dealbreaker: the threshold boundary is exact (2 fails, 3 passes)", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#new-decision");
+  await page.click('.template-card[data-tpl="blank"]');
+  await addCriterion(page, "Dealbreaker crit");
+  await addOption(page, "AtThreshold");
+  await addOption(page, "JustAbove");
+  await page.click("#criteria-list .chip .dealbreaker-toggle");
+  await page.waitForSelector("#criteria-list .chip.dealbreaker");
+
+  await page.fill('input[data-r="0"][data-c="0"]', "2"); // AtThreshold: exactly at the bar
+  await page.fill('input[data-r="1"][data-c="0"]', "3"); // JustAbove: one point clear of it
+  await page.waitForFunction(() => document.querySelector(".matrix tbody tr.disqualified") !== null);
+
+  const disqualifiedNames = await page.$$eval(".matrix tbody tr.disqualified th", (els) => els.map((e) => e.textContent));
+  assert.ok(disqualifiedNames.some((t) => t.includes("AtThreshold")), "a score of exactly 2 must disqualify (inclusive threshold)");
+  assert.ok(!disqualifiedNames.some((t) => t.includes("JustAbove")), "a score of 3 must NOT disqualify");
+});
+
 test("dealbreaker: when every option is disqualified, the banner says so plainly", async (t) => {
   const page = await freshPage(t);
   await page.click("#criteria-list .chip .dealbreaker-toggle"); // Salary
@@ -302,6 +321,29 @@ test("deleting a decision can be undone from the toast", async (t) => {
   await page.waitForSelector("#decision-editor:not([hidden])");
   assert.equal(await page.textContent(".rb-winner"), "Take the offer");
   assert.equal((await page.$$("#decision-list li")).length, 1);
+});
+
+test("CSV export marks dealbreaker columns and disqualification reasons", async (t) => {
+  const page = await freshPage(t);
+  await page.click("#criteria-list .chip .dealbreaker-toggle"); // Salary
+  await page.fill('input[data-r="0"][data-c="0"]', "1"); // Take the offer x Salary -> disqualified
+  await page.waitForFunction(() => document.querySelector(".matrix tbody tr.disqualified") !== null);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#csv-btn"),
+  ]);
+  const stream = await download.createReadStream();
+  let csv = "";
+  for await (const chunk of stream) csv += chunk;
+  const [header, ...rows] = csv.trim().split("\n");
+
+  assert.match(header, /"Salary \[dealbreaker\] \(x8\)"/, `header should flag the dealbreaker column, got: ${header}`);
+  assert.match(header, /"Disqualified"$/, "header should end with a Disqualified column");
+  const disqualifiedRow = rows.find((r) => r.startsWith('"Take the offer"'));
+  assert.match(disqualifiedRow, /"Salary"$/, `disqualified row should name the failed criterion, got: ${disqualifiedRow}`);
+  const okRow = rows.find((r) => r.startsWith('"Stay put"'));
+  assert.match(okRow, /,""$/, `qualifying row's Disqualified column should be empty, got: ${okRow}`);
 });
 
 test("CSV export neutralizes formula-injection payloads", async (t) => {
